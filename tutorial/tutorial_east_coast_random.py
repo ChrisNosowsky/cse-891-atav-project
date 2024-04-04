@@ -2,7 +2,7 @@ import random
 
 from matplotlib import pyplot as plt
 
-from beamngpy import BeamNGpy, Scenario, Vehicle, set_up_simple_logging
+from beamngpy import BeamNGpy, Scenario, Vehicle, set_up_simple_logging, Level
 from beamngpy.sensors import Camera, Damage, Electrics, GForces, Timer
 
 
@@ -29,7 +29,6 @@ def main():
 
     # Create a scenario in east_coast_usa
     scenario = Scenario('east_coast_usa', 'tech_test', description='Random driving for research')
-
     # Set up first vehicle, with two cameras, gforces sensor, lidar, electrical
     # sensors, and damage sensors
     vehicle = Vehicle('ego_vehicle', model='etk800', license='RED', color='Red')

@@ -7,9 +7,9 @@ from desktopmagic.screengrab_win32 import getDisplayRects, getRectAsImage
 
 BEAMNG_GAME_PATH_DIR = "E:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive"
 BEAMNG_TECH_GAME_PATH_DIR = "E:/Program Files (x86)/Games/BeamNG.tech.v0.31.3.0"
-SCREENSHOT_FOLDER_PATH = '../screenshots/'
-CAMERA_FOLDER_PATH = '../camera/'
-LIDAR_FOLDER_PATH = '../lidar/'
+SCREENSHOT_FOLDER_PATH = './screenshots/'
+CAMERA_FOLDER_PATH = './camera/'
+LIDAR_FOLDER_PATH = './lidar/'
 SCREENS=(getDisplayRects())
 
 def data_folder_check(folder_path):
@@ -49,11 +49,11 @@ time.sleep(2)
 # beamng.scenario.load(scenario)
 
 # input message when ready to proceed with rest of code
-print("Press Enter when ready to proceed with the rest of the code")
+print("Press Enter when ready to proceed with the rest of the code\n")
+print("This is the time to load up Freeroam mode on the game, select your car, select the replay to train on before proceeding.\n")
 input()
 print(beamng.get_gamestate())
 print(beamng.get_current_vehicles())
-
 
 ego_vehicle = beamng.get_current_vehicles()['thePlayer']
 ego_vehicle.connect(beamng)
@@ -68,20 +68,32 @@ ego_vehicle.ai.set_mode('random')
 
 camera = Camera('camera1', beamng, ego_vehicle, is_render_instance=True,
                 is_render_annotations=True, is_render_depth=True)
-
 lidar = Lidar('lidar1', beamng, ego_vehicle)
+
 print("Press Enter when ready to proceed with the rest of the code")
+print("You are about to start training.")
 input()
-steer_throttle = []
+
+vehicle_data = []
+timestamps = []
 camera_sensor_data = []
 lidar_sensor_data = []
 duration = 60
+
+beamng.pause()
+paused = False
+countdown = 3
+while paused:
+    print("Game is paused. Unpausing to train in {}...".format(countdown))
+    countdown -= 1
+beamng.resume()
 start_time = time.time()
 while time.time() - start_time < duration:
-
+    current_epoch = int(time.time())
     # Capture screenshot
-    screenshot_path = '../screenshots/screenshot_{:03d}.png'.format(int(time.time()))
-    camera_path = '../camera/camera_{:03d}.png'.format(int(time.time()))
+    screenshot_path = './screenshots/screenshot_{:03d}.png'.format(current_epoch)
+    camera_path = './camera/camera_{:03d}.png'.format(current_epoch)
+    timestamps.append(current_epoch)
     # rect = getRectAsImage(SCREENS[1])
     # rect.save(screenshot_path,format='png')
 
@@ -99,17 +111,18 @@ while time.time() - start_time < duration:
     color_image.save(camera_path, format='PNG')
     camera_sensor_data.append(camera_data)
     lidar_sensor_data.append(lidar_data)
-    steer_throttle.append([electrics_data['steering'], electrics_data['throttle']])
+    vehicle_data.append([current_epoch, electrics_data['steering'], electrics_data['throttle'], 
+                           electrics_data['brake'], electrics_data['gear'], lidar_data['pointCloud']])
     # Step the simulation
     # beamng.step(1)
-    time.sleep(0.1)
+    # time.sleep(0.1)
 
 print("Time up for logging screenshots + steering + throttle input")
 # Save data along with timestamps or frame numbers
-with open('data.csv', 'w') as f:
-    f.write('time,steering,throttle\n')
-    for control in steer_throttle:
-        f.write('{},{},{}\n'.format(int(time.time()), control[0], control[1]))
+with open('charlotte_roval.csv', 'w') as f:
+    f.write('uid,time,steering,throttle,brake,gear,lidar_pc\n')
+    for i, control in enumerate(vehicle_data):
+        f.write('{},{},{},{},{},{}\n'.format(int(time.time()), control[0], control[1]))
 
 # Cleanup
 beamng.close()

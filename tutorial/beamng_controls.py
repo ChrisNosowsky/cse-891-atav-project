@@ -10,7 +10,7 @@ beamng.open(launch=True)
 
 scenario = Scenario('east_coast_usa', 'freeroam')
 vehicle = Vehicle('vehicle', model='pickup', licence='PYTHON')
-
+scenario.restart
 # Add the vehicle to the scenario
 scenario.add_vehicle(vehicle, pos=(-426.68, -43.59, 31.11), rot_quat=(0, 0, 1, 0))
 scenario.make(beamng)

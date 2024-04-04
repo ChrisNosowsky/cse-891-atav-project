@@ -1,5 +1,7 @@
 # Custom
 /screenshots/
+/camera/
+/lidar/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

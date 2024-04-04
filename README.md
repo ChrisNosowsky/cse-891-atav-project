@@ -9,3 +9,11 @@ Capture screen data, throttle and steering inputs and then use that as the groun
 2. Reinforcement learning
 
 3. Using sensor data for training and predicting next steering/throttle input
+
+
+
+
+## Notes
+Best AI to train per track
+
+Charlotte Roval: RC9
