@@ -51,6 +51,7 @@ ego_vehicle.ai.set_mode('random')
 camera = Camera('camera1', beamng, ego_vehicle, is_render_instance=True,
                 is_render_annotations=True, is_render_depth=True)
 lidar = Lidar('lidar1', beamng, ego_vehicle)
+powertrain = PowertrainSensor('powertrain1', beamng, ego_vehicle)
 electrics = Electrics()
 damage = Damage()
 timer = Timer()
@@ -98,6 +99,7 @@ while time.time() - start_time < duration:
     ego_vehicle.sensors.poll()
     camera_data = camera.poll()
     lidar_data = lidar.poll()
+    powertrain_data = powertrain.poll()
     
     electrics_data = ego_vehicle.sensors['electrics']
     damage_data = ego_vehicle.sensors['damage']
@@ -106,8 +108,9 @@ while time.time() - start_time < duration:
     # print("TIMER ", timer_data)
     print("\n\nDAMAGE ", damage_data)
     print("\n\nELECTRICS ", electrics_data)
-    # print(camera_data)
-    # print(lidar_data)
+    # print("\n\nCAMERA DATA ", camera_data)
+    # print("\n\nLIDAR DATA ", lidar_data)
+    print("\n\nPOWERTRAIN DATA ", powertrain_data)
     
     # color_image = camera_data['colour']
     # color_image.save(camera_path, format='PNG')
