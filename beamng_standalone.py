@@ -85,7 +85,7 @@ beamng.control.resume()
 
 time.sleep(1)
 start_time = time.time()
-
+ego_vehicle.logging.start('data')
 while time.time() - start_time < duration:
     current_epoch = int(time.time())
     timestamps.append(current_epoch)
@@ -99,18 +99,18 @@ while time.time() - start_time < duration:
     ego_vehicle.sensors.poll()
     camera_data = camera.poll()
     lidar_data = lidar.poll()
-    powertrain_data = powertrain.poll()
+    # powertrain_data = powertrain.poll()
     
     electrics_data = ego_vehicle.sensors['electrics']
     damage_data = ego_vehicle.sensors['damage']
     # timer_data = ego_vehicle.sensors['timer']
     
     # print("TIMER ", timer_data)
-    print("\n\nDAMAGE ", damage_data)
-    print("\n\nELECTRICS ", electrics_data)
+    # print("\n\nDAMAGE ", damage_data)
+    # print("\n\nELECTRICS ", electrics_data)
     # print("\n\nCAMERA DATA ", camera_data)
-    # print("\n\nLIDAR DATA ", lidar_data)
-    print("\n\nPOWERTRAIN DATA ", powertrain_data)
+    print("\n\nLIDAR DATA ", lidar_data['pointCloud'])
+    # print("\n\nPOWERTRAIN DATA ", powertrain_data)
     
     # color_image = camera_data['colour']
     # color_image.save(camera_path, format='PNG')
@@ -131,6 +131,7 @@ with open('charlotte_roval.csv', 'w') as f:
         f.write('{},{},{},{},{},{}\n'.format(control[0], control[1], control[2], control[3], control[4], control[5]))
 
 # Cleanup
+ego_vehicle.logging.stop()
 beamng.close()
 
 

@@ -16,6 +16,11 @@ class BeamNG:
     def __init__(self, hostname="localhost", port=64256, home=BEAMNG_TECH_GAME_PATH_DIR):
         self.beamng = BeamNGpy(hostname, port, home)
         self.vehicle_data = []
+        self.cur_speed = 0
+        self.cur_steering = 0
+        self.cur_brake = 0
+        self.cur_gear = 0
+        self.cur_rpm = 0
     
     def data_folder_check(folder_path):
         if os.path.exists(folder_path):

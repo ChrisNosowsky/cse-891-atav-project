@@ -11,6 +11,7 @@ from actor_network import ActorNetwork
 from critic_network import CriticNetwork
 from replay_buffer import ReplayBuffer
 from ou import OU
+from gym_beamng import BeamNGEnv
 
 NUM_SENSORS = 10
 NUM_ACTIONS = 3
@@ -67,6 +68,12 @@ class DDPGModel:
         critic = self.get_critic()
         buff = self.get_replay_buffer()
         
+        env = BeamNGEnv()
+        
+        # TODO: Setup environment here (update run_simulator to poll sensor data on a on-demand basis)
+        env.client.run_simulator()
+        
+        
         try:
             actor.model.load_weights(ACTOR_MODEL)
             critic.model.load_weights(CRITIC_MODEL)
@@ -80,7 +87,10 @@ class DDPGModel:
         
         for i in range(self.episode_count):
             print("Episode : " + str(i) + "/" + str(self.episode_count))
-            sensors_t = []                                              # TODO: Get this from the environment
+            
+            obs = env.reset()   # Initial observation
+            
+            sensors_t = np.hstack((obs.angle, obs.track, obs.trackPos, obs.speedX, obs.speedY, obs.speedZ, obs.wheelSpinVel/100.0, obs.rpm))
             for j in range(self.max_steps):
                 loss = 0.0
                 self.epsilon -= 1.0 / self.explore
@@ -88,19 +98,18 @@ class DDPGModel:
                 noises = np.zeros([1, self.num_actions])
                 
                 original_actions = actor.model.predict(sensors_t.reshape(1, sensors_t[0]))
-                noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU.function(original_actions[0][0],  0.0 , 0.60, 0.30)
-                noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU.function(original_actions[0][1],  0.5 , 1.00, 0.10)
-                noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU.function(original_actions[0][2], -0.1 , 1.00, 0.05)
+                noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][0],  0.0 , 0.60, 0.30)
+                noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][1],  0.5 , 1.00, 0.10)
+                noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][2], -0.1 , 1.00, 0.05)
 
 
                 actions[0][0] = original_actions[0][0] + noises[0][0]
                 actions[0][1] = original_actions[0][1] + noises[0][1]
                 actions[0][2] = original_actions[0][2] + noises[0][2]
             
-                # TODO: DO ACTION FROM GAME ENV. HERE??: ob, r_t, done, info = env.step(actions[0])
-                reward_t = 0
+                obs, reward_t, done, info = env.step(actions[0])
                 
-                sensors_t1 = [] # TODO: Get this from the environment
+                sensors_t1 = np.hstack((obs.angle, obs.track, obs.trackPos, obs.speedX, obs.speedY, obs.speedZ, obs.wheelSpinVel/100.0, obs.rpm))
                 
                 buff.add(sensors_t, actions[0], reward_t, sensors_t1, done)
                 
