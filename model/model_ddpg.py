@@ -90,7 +90,10 @@ class DDPGModel:
             
             obs = env.reset()   # Initial observation
             
-            sensors_t = np.hstack((obs.angle, obs.track, obs.trackPos, obs.speedX, obs.speedY, obs.speedZ, obs.wheelSpinVel/100.0, obs.rpm))
+            sensors_t = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.engine_temp, 
+                                   obs.wheelspin, obs.damage, obs.track_dist_forward, 
+                                   obs.track_dist_right_30, obs.track_dist_right_60, obs.track_dist_left_30, 
+                                   obs.track_dist_left_60))
             for j in range(self.max_steps):
                 loss = 0.0
                 self.epsilon -= 1.0 / self.explore
@@ -98,19 +101,21 @@ class DDPGModel:
                 noises = np.zeros([1, self.num_actions])
                 
                 original_actions = actor.model.predict(sensors_t.reshape(1, sensors_t[0]))
-                noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][0],  0.0 , 0.60, 0.30)
-                noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][1],  0.5 , 1.00, 0.10)
-                noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][2], -0.1 , 1.00, 0.05)
+                noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][0],  0.0 , 0.60, 0.30)   # STEERING
+                noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][1],  0.5 , 1.00, 0.10)   # THROTTLE
+                noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][2], -0.1 , 1.00, 0.05)   # BRAKE
 
 
                 actions[0][0] = original_actions[0][0] + noises[0][0]
                 actions[0][1] = original_actions[0][1] + noises[0][1]
                 actions[0][2] = original_actions[0][2] + noises[0][2]
             
-                obs, reward_t, done, info = env.step(actions[0])
+                obs, reward_t, done = env.step(actions[0])
                 
-                sensors_t1 = np.hstack((obs.angle, obs.track, obs.trackPos, obs.speedX, obs.speedY, obs.speedZ, obs.wheelSpinVel/100.0, obs.rpm))
-                
+                sensors_t1 = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.engine_temp, 
+                                    obs.wheelspin, obs.damage, obs.track_dist_forward, 
+                                    obs.track_dist_right_30, obs.track_dist_right_60, obs.track_dist_left_30, 
+                                    obs.track_dist_left_60))
                 buff.add(sensors_t, actions[0], reward_t, sensors_t1, done)
                 
                 batch = buff.get_batch(self.batch_size)

@@ -2,7 +2,7 @@ import time
 import shutil
 import os
 from beamngpy import BeamNGpy, Scenario, Vehicle
-from beamngpy.sensors import Electrics, Camera, Lidar, Damage, Timer, PowertrainSensor
+from beamngpy.sensors import Electrics, Camera, Lidar, Damage, Timer, Ultrasonic, PowertrainSensor
 from desktopmagic.screengrab_win32 import getDisplayRects, getRectAsImage
 
 BEAMNG_GAME_PATH_DIR = "E:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive"
@@ -15,12 +15,21 @@ SCREENS=(getDisplayRects())
 class BeamNG:
     def __init__(self, hostname="localhost", port=64256, home=BEAMNG_TECH_GAME_PATH_DIR):
         self.beamng = BeamNGpy(hostname, port, home)
+        self.ego_vehicle = None
         self.vehicle_data = []
-        self.cur_speed = 0
+        self.vehicle_data_dict = {}
+        self.cur_throttle = 0
         self.cur_steering = 0
         self.cur_brake = 0
         self.cur_gear = 0
         self.cur_rpm = 0
+        self.speed_x = 0
+        self.speed_y = 0
+        self.cur_track_dist_forward = 0
+        self.cur_track_dist_right_30 = 0
+        self.cur_track_dist_right_60 = 0
+        self.cur_track_dist_left_30 = 0
+        self.cur_track_dist_left_60 = 0
     
     def data_folder_check(folder_path):
         if os.path.exists(folder_path):
@@ -40,6 +49,68 @@ class BeamNG:
         
     def close_beamng(self):
         self.beamng.close()
+    
+    def get_current_actions(self):
+        return {"throttle": self.cur_throttle, "steering": self.cur_steering, "brake": self.cur_brake}
+    
+    def apply_actions(self, actions):
+        self.ego_vehicle.control(throttle=actions["throttle"], steering=actions["steering"], brake=actions["brake"])
+    
+    def poll_sensors(self, camera: Camera, 
+                     lidar: Lidar, 
+                     powertrain: PowertrainSensor,
+                     ultrasonic_forward: Ultrasonic,
+                     ultrasonic_left_30: Ultrasonic,
+                     ultrasonic_left_60: Ultrasonic,
+                     ultrasonic_right_30: Ultrasonic,
+                     ultrasonic_right_60: Ultrasonic):
+        self.ego_vehicle.sensors.poll()
+        
+        camera_data = camera.poll()
+        lidar_data = lidar.poll()
+        powertrain_data = powertrain.poll()
+        ultrasonic_forward_data = ultrasonic_forward.poll()
+        ultrasonic_left_data_30 = ultrasonic_left_30.poll()
+        ultrasonic_left_data_60 = ultrasonic_left_60.poll()
+        ultrasonic_right_data_30 = ultrasonic_right_30.poll()
+        ultrasonic_right_data_60 = ultrasonic_right_60.poll()
+        
+        electrics_data = self.ego_vehicle.sensors['electrics']
+        damage_data = self.ego_vehicle.sensors['damage']
+        
+        self.cur_brake = electrics_data['brake']
+        self.cur_gear = electrics_data['gear']
+        self.cur_rpm = electrics_data['rpm']
+        self.speed_x = electrics_data['accXSmooth']
+        self.speed_y = electrics_data['accYSmooth']
+        self.cur_throttle = electrics_data['throttle']
+        self.cur_steering = electrics_data['steering']
+        self.cur_engine_temp = electrics_data['water_temperature']
+        self.cur_wheelspin = electrics_data['wheelspeed']
+        self.cur_damage = damage_data['damage']
+        self.cur_track_dist_forward = ultrasonic_forward_data['distance']
+        self.cur_track_dist_right_30 = ultrasonic_right_data_30['distance']
+        self.cur_track_dist_right_60 = ultrasonic_right_data_60['distance']
+        self.cur_track_dist_left_30 = ultrasonic_left_data_30['distance']
+        self.cur_track_dist_left_60 = ultrasonic_left_data_60['distance']
+        
+        self.vehicle_data_dict = {
+            "gear": self.cur_gear,
+            "rpm": self.cur_rpm,
+            "speed_x": self.speed_x,
+            "speed_y": self.speed_y,
+            "engine_temp": self.cur_engine_temp,
+            "wheelspin": self.cur_wheelspin,
+            "damage": self.cur_damage,
+            "track_dist_forward": self.cur_track_dist_forward,
+            "track_dist_right_30": self.cur_track_dist_right_30,
+            "track_dist_right_60": self.cur_track_dist_right_60,
+            "track_dist_left_30": self.cur_track_dist_left_30,
+            "track_dist_left_60": self.cur_track_dist_left_60
+        }
+        
+        return self.vehicle_data_dict
+        
         
     def write_logged_data(self, filename):
         with open(filename, 'w') as f:
@@ -58,20 +129,27 @@ class BeamNG:
         
         ego_vehicle = next(iter(self.beamng.get_current_vehicles().values()))
         ego_vehicle.connect(self.beamng)
-
         self.beamng.settings.set_deterministic(60)
-        ego_vehicle.ai.set_mode('random')
 
         camera = Camera('camera1', self.beamng, ego_vehicle, is_render_instance=True,
                         is_render_annotations=True, is_render_depth=True)
         lidar = Lidar('lidar1', self.beamng, ego_vehicle)
+        
+        ultrasonic_forward = Ultrasonic('ultrasonic_forward', beamng, ego_vehicle, field_of_view_y=2, near_far_planes=(0.1, 20.1), range_direct_max_cutoff=20)
+
+        ultrasonic_left_30 = Ultrasonic('ultrasonic_left30', beamng, ego_vehicle, dir=(0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+        ultrasonic_left_60 = Ultrasonic('ultrasonic_left60', beamng, ego_vehicle, dir=(0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+
+        ultrasonic_right_30 = Ultrasonic('ultrasonic_right30', beamng, ego_vehicle, dir=(-0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+        ultrasonic_right_60 = Ultrasonic('ultrasonic_right60', beamng, ego_vehicle, dir=(-0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+                
         powertrain = PowertrainSensor('powertrain1', self.beamng, ego_vehicle)
         electrics = Electrics()
         damage = Damage()
         timer = Timer()
         ego_vehicle.sensors.attach('electrics', electrics)
         ego_vehicle.sensors.attach('damage', damage)
-        
+        ego_vehicle.control()
         print("Press Enter when ready to proceed with the rest of the code")
         print("You are about to start training.")
         input()
