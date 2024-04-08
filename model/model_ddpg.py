@@ -1,12 +1,6 @@
 import numpy as np
-import random
-import argparse
 import json
 import tensorflow as tf
-from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.optimizers import Adam
-from keras import backend as K
 from actor_network import ActorNetwork
 from critic_network import CriticNetwork
 from replay_buffer import ReplayBuffer
@@ -69,10 +63,7 @@ class DDPGModel:
         buff = self.get_replay_buffer()
         
         env = BeamNGEnv()
-        
-        # TODO: Setup environment here (update run_simulator to poll sensor data on a on-demand basis)
         env.client.run_simulator()
-        
         
         try:
             actor.model.load_weights(ACTOR_MODEL)
@@ -84,13 +75,12 @@ class DDPGModel:
             print("Cannot find the weight")
         
         
-        
         for i in range(self.episode_count):
             print("Episode : " + str(i) + "/" + str(self.episode_count))
             
             obs = env.reset()   # Initial observation
             
-            sensors_t = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.engine_temp, 
+            sensors_t = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.speedZ, obs.engine_temp, 
                                    obs.wheelspin, obs.damage, obs.track_dist_forward, 
                                    obs.track_dist_right_30, obs.track_dist_right_60, obs.track_dist_left_30, 
                                    obs.track_dist_left_60))
@@ -112,7 +102,7 @@ class DDPGModel:
             
                 obs, reward_t, done = env.step(actions[0])
                 
-                sensors_t1 = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.engine_temp, 
+                sensors_t1 = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.speedZ, obs.engine_temp, 
                                     obs.wheelspin, obs.damage, obs.track_dist_forward, 
                                     obs.track_dist_right_30, obs.track_dist_right_60, obs.track_dist_left_30, 
                                     obs.track_dist_left_60))

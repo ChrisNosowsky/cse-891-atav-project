@@ -13,9 +13,11 @@ LIDAR_FOLDER_PATH = './lidar/'
 SCREENS=(getDisplayRects())
 
 class BeamNG:
-    def __init__(self, hostname="localhost", port=64256, home=BEAMNG_TECH_GAME_PATH_DIR):
+    def __init__(self, hostname="localhost", port=64256, home=BEAMNG_TECH_GAME_PATH_DIR, verbose=False):
         self.beamng = BeamNGpy(hostname, port, home)
+        self.verbose = verbose
         self.ego_vehicle = None
+        self.vehicle_sensors = []
         self.vehicle_data = []
         self.vehicle_data_dict = {}
         self.cur_throttle = 0
@@ -25,12 +27,14 @@ class BeamNG:
         self.cur_rpm = 0
         self.speed_x = 0
         self.speed_y = 0
+        self.speed_z = 0
         self.cur_track_dist_forward = 0
         self.cur_track_dist_right_30 = 0
         self.cur_track_dist_right_60 = 0
         self.cur_track_dist_left_30 = 0
         self.cur_track_dist_left_60 = 0
     
+    @staticmethod
     def data_folder_check(folder_path):
         if os.path.exists(folder_path):
             try:
@@ -56,16 +60,17 @@ class BeamNG:
     def apply_actions(self, actions):
         self.ego_vehicle.control(throttle=actions["throttle"], steering=actions["steering"], brake=actions["brake"])
     
-    def poll_sensors(self, camera: Camera, 
-                     lidar: Lidar, 
-                     powertrain: PowertrainSensor,
-                     ultrasonic_forward: Ultrasonic,
-                     ultrasonic_left_30: Ultrasonic,
-                     ultrasonic_left_60: Ultrasonic,
-                     ultrasonic_right_30: Ultrasonic,
-                     ultrasonic_right_60: Ultrasonic):
-        self.ego_vehicle.sensors.poll()
+    def poll_sensors(self):
+        camera: Camera = self.vehicle_sensors[0]
+        lidar: Lidar = self.vehicle_sensors[1]
+        powertrain: PowertrainSensor = self.vehicle_sensors[2]
+        ultrasonic_forward: Ultrasonic = self.vehicle_sensors[3]
+        ultrasonic_left_30: Ultrasonic = self.vehicle_sensors[4]
+        ultrasonic_left_60: Ultrasonic = self.vehicle_sensors[5]
+        ultrasonic_right_30: Ultrasonic = self.vehicle_sensors[6]
+        ultrasonic_right_60: Ultrasonic = self.vehicle_sensors[7]
         
+        self.ego_vehicle.sensors.poll()
         camera_data = camera.poll()
         lidar_data = lidar.poll()
         powertrain_data = powertrain.poll()
@@ -83,6 +88,7 @@ class BeamNG:
         self.cur_rpm = electrics_data['rpm']
         self.speed_x = electrics_data['accXSmooth']
         self.speed_y = electrics_data['accYSmooth']
+        self.speed_z = electrics_data['accZSmooth']
         self.cur_throttle = electrics_data['throttle']
         self.cur_steering = electrics_data['steering']
         self.cur_engine_temp = electrics_data['water_temperature']
@@ -109,6 +115,23 @@ class BeamNG:
             "track_dist_left_60": self.cur_track_dist_left_60
         }
         
+        current_epoch = int(time.time())
+        self.vehicle_data.append([current_epoch, electrics_data['steering'], electrics_data['throttle'], 
+                    electrics_data['brake'], electrics_data['gear'], lidar_data['pointCloud']])
+        
+        if self.verbose:
+            # print("TIMER ", timer_data)
+            # print("\n\nDAMAGE ", damage_data)
+            print("\n\nELECTRICS ", electrics_data)
+            # print("\n\nULTRASONIC DATA FORWARD", ultrasonic_forward_data['distance'])
+            # print("\n\nULTRASONIC DATA LEFT 30", ultrasonic_left_data_30['distance'])
+            # print("\n\nULTRASONIC DATA LEFT 60", ultrasonic_left_data_60['distance'])
+            # print("\n\nULTRASONIC DATA RIGHT 30", ultrasonic_right_data_30['distance'])
+            # print("\n\nULTRASONIC DATA RIGHT 60", ultrasonic_right_data_60['distance'])
+            # print("\n\nCAMERA DATA ", camera_data)
+            # print("\n\nLIDAR DATA ", lidar_data)
+            # print("\n\nPOWERTRAIN DATA ", powertrain_data)
+        
         return self.vehicle_data_dict
         
         
@@ -120,44 +143,47 @@ class BeamNG:
 
         
     def run_simulator(self):
+        self.beamng.close()
+        self.beamng.open()
+
+        time.sleep(2)
+        
         print("Press Enter when ready to proceed with the rest of the code\n")
         print("This is the time to load up Freeroam mode on the game, select your car, select the replay to train on before proceeding.\n")
         input()
-
+        
         print(self.beamng.get_gamestate())
         print(self.beamng.get_current_vehicles())
         
-        ego_vehicle = next(iter(self.beamng.get_current_vehicles().values()))
-        ego_vehicle.connect(self.beamng)
+        self.ego_vehicle = next(iter(self.beamng.get_current_vehicles().values()))
+        self.ego_vehicle.connect(self.beamng)
         self.beamng.settings.set_deterministic(60)
 
-        camera = Camera('camera1', self.beamng, ego_vehicle, is_render_instance=True,
+        camera = Camera('camera1', self.beamng, self.ego_vehicle, is_render_instance=True,
                         is_render_annotations=True, is_render_depth=True)
-        lidar = Lidar('lidar1', self.beamng, ego_vehicle)
+        lidar = Lidar('lidar1', self.beamng, self.ego_vehicle)
         
-        ultrasonic_forward = Ultrasonic('ultrasonic_forward', beamng, ego_vehicle, field_of_view_y=2, near_far_planes=(0.1, 20.1), range_direct_max_cutoff=20)
+        ultrasonic_forward = Ultrasonic('ultrasonic_forward', self.beamng, self.ego_vehicle, field_of_view_y=2, near_far_planes=(0.1, 20.1), range_direct_max_cutoff=20)
 
-        ultrasonic_left_30 = Ultrasonic('ultrasonic_left30', beamng, ego_vehicle, dir=(0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
-        ultrasonic_left_60 = Ultrasonic('ultrasonic_left60', beamng, ego_vehicle, dir=(0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+        ultrasonic_left_30 = Ultrasonic('ultrasonic_left30', self.beamng, self.ego_vehicle, dir=(0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+        ultrasonic_left_60 = Ultrasonic('ultrasonic_left60', self.beamng, self.ego_vehicle, dir=(0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
 
-        ultrasonic_right_30 = Ultrasonic('ultrasonic_right30', beamng, ego_vehicle, dir=(-0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
-        ultrasonic_right_60 = Ultrasonic('ultrasonic_right60', beamng, ego_vehicle, dir=(-0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+        ultrasonic_right_30 = Ultrasonic('ultrasonic_right30', self.beamng, self.ego_vehicle, dir=(-0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
+        ultrasonic_right_60 = Ultrasonic('ultrasonic_right60', self.beamng, self.ego_vehicle, dir=(-0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
                 
-        powertrain = PowertrainSensor('powertrain1', self.beamng, ego_vehicle)
+        powertrain = PowertrainSensor('powertrain1', self.beamng, self.ego_vehicle)
+        
         electrics = Electrics()
         damage = Damage()
         timer = Timer()
-        ego_vehicle.sensors.attach('electrics', electrics)
-        ego_vehicle.sensors.attach('damage', damage)
-        ego_vehicle.control()
+        self.ego_vehicle.sensors.attach('electrics', electrics)
+        self.ego_vehicle.sensors.attach('damage', damage)
+        
+        self.vehicle_sensors = [camera, lidar, powertrain, ultrasonic_forward, ultrasonic_left_30, ultrasonic_left_60, ultrasonic_right_30, ultrasonic_right_60]
+        
         print("Press Enter when ready to proceed with the rest of the code")
         print("You are about to start training.")
         input()
-        
-        timestamps = []
-        camera_sensor_data = []
-        lidar_sensor_data = []
-        duration = 60
 
         self.beamng.control.pause()
         paused = True
@@ -171,57 +197,28 @@ class BeamNG:
             time.sleep(1)
             
         self.beamng.control.resume()
-        
         time.sleep(1)
-        start_time = time.time()
-        
-        while time.time() - start_time < duration:
-            current_epoch = int(time.time())
-            timestamps.append(current_epoch)
-            
-            # screenshot_path = './screenshots/screenshot_{:03d}.png'.format(current_epoch)
-            # camera_path = './camera/camera_{:03d}.png'.format(current_epoch)
-            
-            # rect = getRectAsImage(SCREENS[1])
-            # rect.save(screenshot_path,format='png')
-            
-            ego_vehicle.sensors.poll()
-            camera_data = camera.poll()
-            lidar_data = lidar.poll()
-            powertrain_data = powertrain.poll()
-            
-            electrics_data = ego_vehicle.sensors['electrics']
-            damage_data = ego_vehicle.sensors['damage']
-            # timer_data = ego_vehicle.sensors['timer']
-            
-            # print("TIMER ", timer_data)
-            print("\n\nDAMAGE ", damage_data)
-            print("\n\nELECTRICS ", electrics_data)
-            # print("\n\nCAMERA DATA ", camera_data)
-            # print("\n\nLIDAR DATA ", lidar_data)
-            print("\n\nPOWERTRAIN DATA ", powertrain_data)
-            
-            # color_image = camera_data['colour']
-            # color_image.save(camera_path, format='PNG')
-            # camera_sensor_data.append(camera_data)
-            # lidar_sensor_data.append(lidar_data)
-            
-            self.vehicle_data.append([current_epoch, electrics_data['steering'], electrics_data['throttle'], 
-                                electrics_data['brake'], electrics_data['gear'], lidar_data['pointCloud']])
-            # Step the simulation
-            # beamng.step(1)
-            # time.sleep(0.1)
-        print("Time up for logging screenshots + steering + throttle input")
-        
+        print("Game environment is ready.")
         
 if __name__ == '__main__':
-    beamng = BeamNG()
+    # Testing individual class below
+    
+    beamng = BeamNG(verbose=True)
     
     beamng.data_folder_check(SCREENSHOT_FOLDER_PATH)
     beamng.data_folder_check(CAMERA_FOLDER_PATH)
     beamng.data_folder_check(LIDAR_FOLDER_PATH)
     
     beamng.run_simulator()
+    
+    duration = 600
+    start_time = time.time()
+        
+    while time.time() - start_time < duration:
+        beamng.poll_sensors()
+        time.sleep(1)
+    
+    print("Times up. Closing BeamNG")
     beamng.close_beamng()
     
     beamng.write_logged_data('charlotte_roval.csv')
