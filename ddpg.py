@@ -1,10 +1,10 @@
 import numpy as np
 import json
 import tensorflow as tf
-from actor_network import ActorNetwork
-from critic_network import CriticNetwork
-from replay_buffer import ReplayBuffer
-from ou import OU
+from model.actor_network import ActorNetwork
+from model.critic_network import CriticNetwork
+from model.replay_buffer import ReplayBuffer
+from model.ou import OU
 from gym_beamng import BeamNGEnv
 
 NUM_SENSORS = 10
@@ -33,16 +33,16 @@ class DDPGModel:
         self.max_steps = 100000
         self.epsilon = 1
 
-    def set_gpus():
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-            try:
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-            except RuntimeError as e:
-                print(e)
+    # def set_gpus():
+    #     gpus = tf.config.experimental.list_physical_devices('GPU')
+    #     if gpus:
+    #         try:
+    #             for gpu in gpus:
+    #                 tf.config.experimental.set_memory_growth(gpu, True)
+    #             logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    #             print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    #         except RuntimeError as e:
+    #             print(e)
 
     def get_actor(self):
         return ActorNetwork(self.num_sensors, self.num_actions, self.batch_size, self.tau, self.lra)

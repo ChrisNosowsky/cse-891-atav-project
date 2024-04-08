@@ -1,16 +1,13 @@
 import keras
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Input
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.initializers import RandomNormal
-from keras.models import Sequential, Model
-from keras.layers import Dense, Flatten, Lambda, Concatenate
+from tensorflow.python.keras.layers import Input
+from keras.models import Model
+from keras.layers import Dense, Concatenate
 from keras.optimizers import Adam
 
 HIDDEN_UNITS1 = 300
 HIDDEN_UNITS2 = 600
-
 class ActorNetwork:
     def __init__(self, num_sensors, num_actions, batch_size, tau, lra):
         self.num_sensors = num_sensors
@@ -22,6 +19,7 @@ class ActorNetwork:
         self.model, self.weights, self.state = self.create_actor_network(self.num_sensors, self.num_actions)
         self.target_model, self.target_weights, self.target_state = self.create_actor_network(self.num_sensors, self.num_actions)
         self.action_gradient = Input(dtype=tf.float32, shape=[None, self.num_actions])
+        # TODO: Fix old gradients way
         self.params_gradient = tf.gradients(self.model.output, self.weights, -self.action_gradient)
         gradients = zip(self.params_gradient, self.weights)
         self.optimizer = Adam(self.lra)
@@ -49,5 +47,5 @@ class ActorNetwork:
         
         V = Concatenate()([Steering, Acceleration, Brake])        
           
-        model = Model(input=S, output=V)
+        model = Model(S, V)
         return model, model.trainable_weights, S

@@ -1,9 +1,7 @@
 import tensorflow as tf
-import numpy as np
-import math
 import keras
-from keras.models import Sequential, Model
-from keras.layers import Dense, Flatten, Lambda, Activation, Concatenate
+from keras.models import Model
+from keras.layers import Dense, Concatenate
 from keras.optimizers import Adam
 
 HIDDEN_UNITS1 = 300
