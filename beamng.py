@@ -105,6 +105,7 @@ class BeamNG:
             "rpm": self.cur_rpm,
             "speed_x": self.speed_x,
             "speed_y": self.speed_y,
+            "speed_z": self.speed_z,
             "engine_temp": self.cur_engine_temp,
             "wheelspin": self.cur_wheelspin,
             "damage": self.cur_damage,
