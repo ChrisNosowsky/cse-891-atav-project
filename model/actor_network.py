@@ -5,7 +5,7 @@ from tensorflow.python.keras.layers import Input
 from keras.models import Model
 from keras.layers import Dense, Concatenate
 from keras.optimizers import Adam
-
+tf.compat.v1.disable_eager_execution()
 HIDDEN_UNITS1 = 300
 HIDDEN_UNITS2 = 600
 class ActorNetwork:
@@ -19,8 +19,9 @@ class ActorNetwork:
         self.model, self.weights, self.state = self.create_actor_network(self.num_sensors, self.num_actions)
         self.target_model, self.target_weights, self.target_state = self.create_actor_network(self.num_sensors, self.num_actions)
         self.action_gradient = Input(dtype=tf.float32, shape=[None, self.num_actions])
-        # TODO: Fix old gradients way
-        self.params_gradient = tf.gradients(self.model.output, self.weights, -self.action_gradient)
+        # Reconfirm this is correct reshape
+        reshaped_output = tf.reshape(self.model.output, (-1, 1))
+        self.params_gradient = tf.gradients(reshaped_output, self.weights, -self.action_gradient)
         gradients = zip(self.params_gradient, self.weights)
         self.optimizer = Adam(self.lra)
         self.optimizer.apply_gradients(gradients)

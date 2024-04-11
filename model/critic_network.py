@@ -37,7 +37,7 @@ class CriticNetwork:
         h2 = Concatenate()([h1,a1])
         h3 = Dense(HIDDEN_UNITS2, activation='relu')(h2)
         V = Dense(num_actions,activation='linear')(h3)   
-        model = Model(input=[S,A],output=V)
+        model = Model(inputs=[S, A], outputs=V)
         adam = Adam(lr=self.lrc)
         model.compile(loss='mse', optimizer=adam)
         return model, A, S
