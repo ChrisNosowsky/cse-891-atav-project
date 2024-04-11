@@ -50,7 +50,7 @@ beamng.settings.set_deterministic(60)
 
 # camera = Camera('camera1', beamng, ego_vehicle, is_render_instance=True,
 #                 is_render_annotations=True, is_render_depth=True)
-# lidar = Lidar('lidar1', beamng, ego_vehicle)
+lidar = Lidar('lidar1', beamng, ego_vehicle)
 
 ultrasonic_forward = Ultrasonic('ultrasonic_forward', beamng, ego_vehicle, field_of_view_y=2, near_far_planes=(0.1, 20.1), range_direct_max_cutoff=20)
 
