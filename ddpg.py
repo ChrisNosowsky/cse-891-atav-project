@@ -7,7 +7,7 @@ from model.replay_buffer import ReplayBuffer
 from model.ou import OU
 from gym_beamng import BeamNGEnv
 
-NUM_SENSORS = 10
+NUM_SENSORS = 13
 NUM_ACTIONS = 3
 ACTOR_MODEL = 'actor_model.h5'
 ACTOR_MODEL_JSON = 'actor_model.json'
@@ -89,11 +89,15 @@ class DDPGModel:
                 self.epsilon -= 1.0 / self.explore
                 actions = np.zeros([1, self.num_actions])
                 noises = np.zeros([1, self.num_actions])
+                original_actions = actor.model.predict(sensors_t.reshape(1, -1))
                 
-                original_actions = actor.model.predict(sensors_t.reshape(1, sensors_t[0]))
-                noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][0],  0.0 , 0.60, 0.30)   # STEERING
-                noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][1],  0.5 , 1.00, 0.10)   # THROTTLE
-                noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU.call_func(original_actions[0][2], -0.1 , 1.00, 0.05)   # BRAKE
+                OU_Steering = OU(original_actions[0][0], 0.0 , 0.60, 0.3)
+                OU_Throttle = OU(original_actions[0][1], 0.5 , 1.00, 0.1)
+                OU_Brake = OU(original_actions[0][2], -0.1 , 1.00, 0.05)
+                
+                noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU_Steering.call_func()   # STEERING
+                noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU_Throttle.call_func()   # THROTTLE
+                noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU_Brake.call_func()      # BRAKE
 
 
                 actions[0][0] = original_actions[0][0] + noises[0][0]

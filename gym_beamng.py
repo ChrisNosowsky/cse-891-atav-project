@@ -39,13 +39,13 @@ class BeamNGEnv:
 
         # Get the current full-observation from BeamNG
         obs = self.client.poll_sensors()
-
+        print("STEP OBS ", obs)
         # Make an obsevation from a raw observation vector from BeamNG
         self.observation = self.make_observaton(obs)
 
         # Reward setting Here #######################################
         # direction-dependent positive reward
-        sp = np.array(obs['speedX'])
+        sp = np.array(obs['speed_x'])
         damage = np.array(obs['damage'])
         rpm = np.array(obs['rpm'])
 
@@ -56,12 +56,13 @@ class BeamNGEnv:
 
         # collision detection
         if obs['damage'] - obs_pre['damage'] > 0:
+            print("DAMAGE PENALTY")
             reward = -1
 
         episode_terminate = False
 
-        if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward
-            episode_terminate = True
+        # if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward
+        #     episode_terminate = True
 
         self.time_step += 1
 

@@ -58,6 +58,7 @@ class BeamNG:
         return {"throttle": self.cur_throttle, "steering": self.cur_steering, "brake": self.cur_brake}
     
     def apply_actions(self, actions):
+        print("APPLYING THE CONTROL!!")
         self.ego_vehicle.control(throttle=actions["throttle"], steering=actions["steering"], brake=actions["brake"])
     
     def poll_sensors(self):
@@ -84,7 +85,14 @@ class BeamNG:
         damage_data = self.ego_vehicle.sensors['damage']
         
         self.cur_brake = electrics_data['brake']
-        self.cur_gear = electrics_data['gear']
+        if (electrics_data['gear'] == 'N'):
+            self.cur_gear = 0
+        elif (electrics_data['gear'] == 'R'):
+            self.cur_gear = -1
+        elif (electrics_data['gear'] == 'D'):
+            self.cur_gear = 1
+        else:
+            self.cur_gear = electrics_data['gear']
         self.cur_rpm = electrics_data['rpm']
         self.speed_x = electrics_data['accXSmooth']
         self.speed_y = electrics_data['accYSmooth']
