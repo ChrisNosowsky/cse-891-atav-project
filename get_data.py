@@ -70,7 +70,7 @@ electrics = Electrics()
 damage = Damage()
 vehicle.attach_sensor('electrics', electrics)
 vehicle.attach_sensor('damage', damage)
-scenario.add_vehicle(vehicle, pos=(43.951, 127.815, 179.878), rot_quat=(0, 0, 1, 0))
+scenario.add_vehicle(vehicle, pos=(43.951, 127.815, 180.100), rot_quat=(0, 0, 1, 1))
 road_a = Road('track_rubber', rid='nwb_oval_road')
 
 with open("data/north_wilkensboro_nodes.csv", mode='r', newline='') as file:
@@ -98,9 +98,9 @@ print(beamng.get_levels())
 
 ego_vehicle = next(iter(beamng.get_current_vehicles().values()))
 ego_vehicle.connect(beamng)
-
+ego_vehicle.ai_set_script
 beamng.settings.set_deterministic(60)
-# road_sensor = RoadsSensor('road', bng=beamng, vehicle=vehicle)
+road_sensor = RoadsSensor('road', bng=beamng, vehicle=vehicle)
 gps = GPS('gps', bng=beamng, vehicle=vehicle)
 print("Press Enter when ready to proceed with the rest of the code")
 print("You are about to start training.")
@@ -112,7 +112,7 @@ camera_sensor_data = []
 lidar_sensor_data = []
 ultrasonic_sensor_data = []
 gps_data = []
-duration = 60
+duration = 600
 
 beamng.control.pause()
 paused = True
@@ -144,9 +144,16 @@ while time.time() - start_time < duration:
     electrics_data = vehicle.sensors['electrics']
     damage_data = vehicle.sensors['damage']
     gps_data = gps.poll()
+    road_sensor_data = road_sensor.poll()
     
-    print("GPS: ", gps_data[0])
+    # print("GPS: ", gps_data[0])
     is_within_track_border(road_geometry, (gps_data[0]['x'], gps_data[0]['y']))
+    
+    print("Velocity X: ", electrics_data['accXSmooth'])
+    print("Velocity Y: ", electrics_data['accYSmooth'])
+    print("Velocity Z: ", electrics_data['accZSmooth'])
+    print("Heading Angle: ", road_sensor_data[0]['headingAngle'])
+    
     time.sleep(5)
 
     # print("\n\nELECTRICS ", electrics_data)

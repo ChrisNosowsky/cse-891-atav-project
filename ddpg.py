@@ -7,7 +7,7 @@ from model.replay_buffer import ReplayBuffer
 from model.ou import OU
 from gym_beamng import BeamNGEnv
 
-NUM_SENSORS = 13
+NUM_SENSORS = 15
 NUM_ACTIONS = 3
 ACTOR_MODEL = 'actor_model.h5'
 ACTOR_MODEL_JSON = 'actor_model.json'
@@ -80,7 +80,7 @@ class DDPGModel:
             
             obs = env.reset()   # Initial observation
             
-            sensors_t = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.speedZ, obs.engine_temp, 
+            sensors_t = np.hstack((obs.gear, obs.rpm, obs.angle, obs.trackPos, obs.speedX, obs.speedY, obs.speedZ, obs.engine_temp, 
                                    obs.wheelspin, obs.damage, obs.track_dist_forward, 
                                    obs.track_dist_right_30, obs.track_dist_right_60, obs.track_dist_left_30, 
                                    obs.track_dist_left_60))
@@ -106,7 +106,7 @@ class DDPGModel:
             
                 obs, reward_t, done = env.step(actions[0])
                 
-                sensors_t1 = np.hstack((obs.gear, obs.rpm, obs.speedX, obs.speedY, obs.speedZ, obs.engine_temp, 
+                sensors_t1 = np.hstack((obs.gear, obs.rpm, obs.angle, obs.trackPos, obs.speedX, obs.speedY, obs.speedZ, obs.engine_temp, 
                                     obs.wheelspin, obs.damage, obs.track_dist_forward, 
                                     obs.track_dist_right_30, obs.track_dist_right_60, obs.track_dist_left_30, 
                                     obs.track_dist_left_60))
@@ -143,6 +143,7 @@ class DDPGModel:
                 
                 step += 1
                 if done:
+                    print("DONE. TERMINATE.")
                     break
             
             if np.mod(i, 3) == 0:

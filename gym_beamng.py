@@ -47,20 +47,41 @@ class BeamNGEnv:
         # direction-dependent positive reward
         sp = np.array(obs['speed_x'])
         damage = np.array(obs['damage'])
-        rpm = np.array(obs['rpm'])
+        # rpm = np.array(obs['rpm'])
+        angle = np.array((obs['angle']) * 180 / np.pi)
+        track_pos = np.array(obs['track_pos'])
 
         # progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['trackPos'])
         # TODO: MODIFY REWARD FUNCTION BELOW!!! (Misha will research, I will too)
-        progress = sp + rpm
+        progress = sp * (np.cos(angle) - np.sin(angle) - np.abs(track_pos))
         reward = progress
 
         # collision detection
         if obs['damage'] - obs_pre['damage'] > 0:
             print("DAMAGE PENALTY")
-            reward = -1
+            reward -= 1
+            
+        if action_beamng['throttle'] < 0.01:
+            print("THROTTLE PENALTY")
+            reward -= 0.1
 
         episode_terminate = False
-
+        if obs['track_pos'] >= 5:
+            print("OUTSIDE TRACK POS")
+            episode_terminate = True
+            reward -= 1
+        
+        if obs['gear'] <= 0:
+            print("PENALTY FOR GEAR")
+            reward -= 1 
+            
+        if obs['speed_x'] < 10:
+            print("PENALTY FOR SPEED")
+            reward -= 10
+        
+           
+        
+        # TODO: Termination criteria (ex. gear is reverse, engine oil too hot, water too hot, etc.)
         # if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward
         #     episode_terminate = True
 
@@ -94,7 +115,9 @@ class BeamNGEnv:
     def make_observaton(self, raw_obs):
         names = [
                 'gear',
-                'rpm', 
+                'rpm',
+                'angle',
+                'trackPos',
                 'speedX',
                 'speedY',
                 'speedZ',
@@ -112,6 +135,8 @@ class BeamNGEnv:
         return Observation(
                     gear=np.array(raw_obs['gear'], dtype=np.float32),
                     rpm=np.array(raw_obs['rpm'], dtype=np.float32),
+                    angle=np.array(raw_obs['angle'], dtype=np.float32),
+                    trackPos=np.array(raw_obs['track_pos'], dtype=np.float32),
                     speedX=np.array(raw_obs['speed_x'], dtype=np.float32),
                     speedY=np.array(raw_obs['speed_y'], dtype=np.float32),
                     speedZ=np.array(raw_obs['speed_z'], dtype=np.float32),
