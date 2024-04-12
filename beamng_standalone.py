@@ -41,7 +41,7 @@ input()
 
 print(beamng.get_gamestate())
 print(beamng.get_current_vehicles())
-
+print(beamng.get_levels())
 ego_vehicle = next(iter(beamng.get_current_vehicles().values()))
 ego_vehicle.connect(beamng)
 

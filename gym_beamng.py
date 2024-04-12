@@ -50,7 +50,7 @@ class BeamNGEnv:
         rpm = np.array(obs['rpm'])
 
         # progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['trackPos'])
-        # TODO: MODIFY REWARD FUNCTION BELOW!!!
+        # TODO: MODIFY REWARD FUNCTION BELOW!!! (Misha will research, I will too)
         progress = sp + rpm
         reward = progress
 
