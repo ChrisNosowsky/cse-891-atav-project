@@ -24,13 +24,24 @@ def is_within_track_border(road_geometry, cur_gps_pos):
     left_edge_y = np.array([e['left'][1] for e in road_geometry])
     right_edge_x = np.array([e['right'][0] for e in road_geometry])
     right_edge_y = np.array([e['right'][1] for e in road_geometry])
+    middles_x = np.array([e['middle'][0] for e in road_geometry])
+    middles_y = np.array([e['middle'][1] for e in road_geometry])
     for i in range(len(road_geometry) - 1):
         segment_min_x = min(left_edge_x[i], right_edge_x[i], left_edge_x[i+1], right_edge_x[i+1])
         segment_max_x = max(left_edge_x[i], right_edge_x[i], left_edge_x[i+1], right_edge_x[i+1])
         segment_min_y = min(left_edge_y[i], right_edge_y[i], left_edge_y[i+1], right_edge_y[i+1])
         segment_max_y = max(left_edge_y[i], right_edge_y[i], left_edge_y[i+1], right_edge_y[i+1])
-
+        segment_min_middle_x = min(middles_x[i], middles_x[i+1])
+        segment_max_middle_x = max(middles_x[i], middles_x[i+1])
+        segment_max_middle_y = max(middles_y[i], middles_y[i+1])
+        segment_min_middle_y = min(middles_y[i], middles_y[i+1])
         if segment_min_x <= cur_x <= segment_max_x and segment_min_y <= cur_y <= segment_max_y:
+            track_pos = np.abs(cur_x - np.mean([segment_min_middle_x, segment_max_middle_x]))
+            print("ON TRACK LOGGING MIDDLE AND CUR")
+            print("CUR X: ", cur_x)
+            print("CUR Y: ", cur_y)
+            print("MID X: ", np.mean([segment_min_middle_x, segment_max_middle_x]))
+            print("MID Y: ", np.mean([segment_min_middle_y, segment_max_middle_y]))
             is_within = True
             break
     print("IS WITHIN? ", is_within)

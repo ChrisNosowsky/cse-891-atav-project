@@ -1,26 +1,27 @@
-import numpy as np
+import os
 import json
+import numpy as np
 import tensorflow as tf
 from model.actor_network import ActorNetwork
 from model.critic_network import CriticNetwork
 from model.replay_buffer import ReplayBuffer
 from model.ou import OU
 from gym_beamng import BeamNGEnv
+from tensorflow.python.keras import backend as K
+from constants import *
+import tensorflow.python.util.deprecation as deprecation
 
-NUM_SENSORS = 15
-NUM_ACTIONS = 3
-ACTOR_MODEL = 'actor_model.h5'
-ACTOR_MODEL_JSON = 'actor_model.json'
-CRITIC_MODEL = 'critic_model.h5'
-CRITIC_MODEL_JSON = 'critic_model.json'
-
+deprecation._PRINT_DEPRECATION_WARNINGS = False
+tf.get_logger().setLevel('ERROR')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 np.random.seed(1337)
 
 class DDPGModel:
-    def __init__(self, num_sensors, num_actions=3, train_rl=0, buffer_size=100000, batch_size=32, gamma=0.99, tau=0.001, lra=0.0001, lrc=0.001):
+    def __init__(self, num_sensors, num_actions=3, train_rl=0, home=BEAMNG_TECH_GAME_PATH_DIR, buffer_size=100000, batch_size=32, gamma=0.99, tau=0.001, lra=0.0001, lrc=0.001):
         self.num_sensors = num_sensors
         self.num_actions = num_actions
         self.train_rl = train_rl
+        self.home = home
         self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.gamma = gamma
@@ -33,22 +34,11 @@ class DDPGModel:
         self.max_steps = 100000
         self.epsilon = 1
 
-    # def set_gpus():
-    #     gpus = tf.config.experimental.list_physical_devices('GPU')
-    #     if gpus:
-    #         try:
-    #             for gpu in gpus:
-    #                 tf.config.experimental.set_memory_growth(gpu, True)
-    #             logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    #             print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    #         except RuntimeError as e:
-    #             print(e)
-
-    def get_actor(self):
-        return ActorNetwork(self.num_sensors, self.num_actions, self.batch_size, self.tau, self.lra)
+    def get_actor(self, sess):
+        return ActorNetwork(sess, self.num_sensors, self.num_actions, self.batch_size, self.tau, self.lra)
         
-    def get_critic(self):
-        return CriticNetwork(self.num_sensors, self.num_actions, self.batch_size, self.tau, self.lrc)
+    def get_critic(self, sess):
+        return CriticNetwork(sess, self.num_sensors, self.num_actions, self.batch_size, self.tau, self.lrc)
     
     def get_replay_buffer(self):
         return ReplayBuffer(self.buffer_size)
@@ -57,12 +47,14 @@ class DDPGModel:
         total_reward = 0
         step = 0
         done = False
-        
-        actor = self.get_actor()
-        critic = self.get_critic()
+        config = tf.compat.v1.ConfigProto()
+        sess = tf.compat.v1.Session(config=config)
+        K.set_session(sess)
+        actor = self.get_actor(sess)
+        critic = self.get_critic(sess)
         buff = self.get_replay_buffer()
         
-        env = BeamNGEnv()
+        env = BeamNGEnv(home=self.home)
         env.client.run_simulator()
         
         try:
@@ -95,10 +87,13 @@ class DDPGModel:
                 OU_Throttle = OU(original_actions[0][1], 0.5 , 1.00, 0.1)
                 OU_Brake = OU(original_actions[0][2], -0.1 , 1.00, 0.05)
                 
+                # OU_Steering = 0
+                # OU_Throttle = 0
+                # OU_Brake = 0
+                
                 noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU_Steering.call_func()   # STEERING
                 noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU_Throttle.call_func()   # THROTTLE
                 noises[0][2] = self.train_rl * max(self.epsilon, 0) * OU_Brake.call_func()      # BRAKE
-
 
                 actions[0][0] = original_actions[0][0] + noises[0][0]
                 actions[0][1] = original_actions[0][1] + noises[0][1]
@@ -165,6 +160,11 @@ class DDPGModel:
                 
                 
 if __name__ == '__main__':
-    ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS)
+    if os.path.exists(BEAMNG_TECH_GAME_PATH_DIR):
+        print("CHRIS PC")
+        ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS, train_rl=1, home=BEAMNG_TECH_GAME_PATH_DIR)
+    else:
+        print("MISHA PC")
+        ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS, train_rl=1, home=MISHA_BEAMNG_TECH_GAME_PATH_DIR)
     ddpg.model()
     

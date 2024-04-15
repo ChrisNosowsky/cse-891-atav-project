@@ -1,17 +1,15 @@
-import gym
 from gym import spaces
 import numpy as np
 import copy
-import os
-import time
 from collections import namedtuple
 from beamng import BeamNG
+from constants import *
 
 class BeamNGEnv:
 
-    def __init__(self):
+    def __init__(self, home=BEAMNG_TECH_GAME_PATH_DIR):
         self.initial_run = True
-        self.client = BeamNG()
+        self.client = BeamNG(home=home)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))
 
         high = np.array([1., np.inf, np.inf, np.inf, 1., np.inf, 1., np.inf])
@@ -29,34 +27,32 @@ class BeamNGEnv:
         action_beamng['throttle'] = this_action['throttle']
         action_beamng['brake'] = this_action['brake']
 
-        
         # Save the privious full-obs from BeamNG for the reward calculation
         obs_pre = copy.deepcopy(self.client.vehicle_data_dict)
 
-        # One-Step Dynamics Update #################################
         # Apply the Agent's action into BeamNG
         self.client.apply_actions(action_beamng)
 
         # Get the current full-observation from BeamNG
         obs = self.client.poll_sensors()
         print("STEP OBS ", obs)
+        
         # Make an obsevation from a raw observation vector from BeamNG
         self.observation = self.make_observaton(obs)
 
-        # Reward setting Here #######################################
-        # direction-dependent positive reward
+        ## REWARD SECTION ##
         sp = np.array(obs['speed_x'])
         damage = np.array(obs['damage'])
         # rpm = np.array(obs['rpm'])
-        angle = np.array((obs['angle']) * 180 / np.pi)
+        # angle = np.array((obs['angle']) * 180 / np.pi)
+        angle = np.array(obs['angle'])
         track_pos = np.array(obs['track_pos'])
 
-        # progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['trackPos'])
-        # TODO: MODIFY REWARD FUNCTION BELOW!!! (Misha will research, I will too)
-        progress = sp * (np.cos(angle) - np.sin(angle) - np.abs(track_pos))
+        # progress = sp * (np.cos(angle) - np.sin(angle) - np.abs(track_pos))
+        progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['track_pos'])
         reward = progress
 
-        # collision detection
+        # TODO: MODIFY BELOW TERMINATION/PENALTY CRITERIA
         if obs['damage'] - obs_pre['damage'] > 0:
             print("DAMAGE PENALTY")
             reward -= 1
@@ -66,10 +62,11 @@ class BeamNGEnv:
             reward -= 0.1
 
         episode_terminate = False
-        if obs['track_pos'] >= 5:
-            print("OUTSIDE TRACK POS")
+        if obs['track_pos'] >= 10:
+            print("OUTSIDE TRACK POS, TIME TO RESET VEHICLE")
             episode_terminate = True
             reward -= 1
+            self.client.recover_vehicle()
         
         if obs['gear'] <= 0:
             print("PENALTY FOR GEAR")
@@ -78,8 +75,6 @@ class BeamNGEnv:
         if obs['speed_x'] < 10:
             print("PENALTY FOR SPEED")
             reward -= 10
-        
-           
         
         # TODO: Termination criteria (ex. gear is reverse, engine oil too hot, water too hot, etc.)
         # if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward
@@ -149,14 +144,3 @@ class BeamNGEnv:
                     track_dist_left_30=np.array(raw_obs['track_dist_left_30'], dtype=np.float32),
                     track_dist_left_60=np.array(raw_obs['track_dist_left_60'], dtype=np.float32)
                     )
-        # return Observation(focus=np.array(raw_obs['focus'], dtype=np.float32)/200.,
-        #                     speedX=np.array(raw_obs['speedX'], dtype=np.float32)/300.0,
-        #                     speedY=np.array(raw_obs['speedY'], dtype=np.float32)/300.0,
-        #                     speedZ=np.array(raw_obs['speedZ'], dtype=np.float32)/300.0,
-        #                     angle=np.array(raw_obs['angle'], dtype=np.float32)/3.1416,
-        #                     damage=np.array(raw_obs['damage'], dtype=np.float32),
-        #                     opponents=np.array(raw_obs['opponents'], dtype=np.float32)/200.,
-        #                     rpm=np.array(raw_obs['rpm'], dtype=np.float32)/10000,
-        #                     track=np.array(raw_obs['track'], dtype=np.float32)/200.,
-        #                     trackPos=np.array(raw_obs['trackPos'], dtype=np.float32)/1.,
-        #                     wheelSpinVel=np.array(raw_obs['wheelSpinVel'], dtype=np.float32))

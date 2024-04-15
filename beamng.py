@@ -5,13 +5,9 @@ import csv
 import numpy as np
 from beamngpy import BeamNGpy, Scenario, Vehicle, Road
 from beamngpy.sensors import Electrics, Camera, Lidar, Damage, Timer, Ultrasonic, PowertrainSensor, GPS, RoadsSensor
-from desktopmagic.screengrab_win32 import getDisplayRects, getRectAsImage
+from desktopmagic.screengrab_win32 import getDisplayRects
+from constants import *
 
-BEAMNG_GAME_PATH_DIR = "E:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive"
-BEAMNG_TECH_GAME_PATH_DIR = "E:/Program Files (x86)/Games/BeamNG.tech.v0.31.3.0"
-SCREENSHOT_FOLDER_PATH = './screenshots/'
-CAMERA_FOLDER_PATH = './camera/'
-LIDAR_FOLDER_PATH = './lidar/'
 SCREENS=(getDisplayRects())
 
 class BeamNG:
@@ -38,6 +34,9 @@ class BeamNG:
         self.cur_track_dist_left_30 = 0
         self.cur_track_dist_left_60 = 0
         self.road_geometry = None
+        self.road_width = 10
+        self.vehicle_pos = (43.951, 127.815, 180.100)
+        self.vehicle_rot_quat = (0, 0, 1, 1)
     
     @staticmethod
     def data_folder_check(folder_path):
@@ -54,7 +53,7 @@ class BeamNG:
             print(f"Directory '{folder_path}' created successfully.")
 
     def is_within_track_border(self, road_geometry, cur_gps_pos):
-        track_pos = 5
+        track_pos = 15
         cur_x, cur_y = cur_gps_pos
         is_within = False
         
@@ -72,11 +71,11 @@ class BeamNG:
             segment_min_middle_x = min(middles_x[i], middles_x[i+1])
             segment_max_middle_x = max(middles_x[i], middles_x[i+1])
             segment_max_middle_y = max(middles_y[i], middles_y[i+1])
-            segment_max_middle_y = min(middles_y[i], middles_y[i+1])
+            segment_min_middle_y = min(middles_y[i], middles_y[i+1])
             if segment_min_x <= cur_x <= segment_max_x and segment_min_y <= cur_y <= segment_max_y:
-                # TODO: Determine if car is above or below middle line.
-                # negative is to the left, positive is to the right
-                track_pos = np.abs(cur_x - np.mean([segment_min_middle_x, segment_max_middle_x]))
+                cur_pos = cur_x + cur_y
+                mid_pos = np.mean([segment_min_middle_x, segment_max_middle_x]) + np.mean([segment_min_middle_y, segment_max_middle_y])
+                track_pos = np.abs(cur_pos - mid_pos) / self.road_width
                 is_within = True
                 break
         print("IS WITHIN? ", is_within)
@@ -88,6 +87,9 @@ class BeamNG:
         
     def close_beamng(self):
         self.beamng.close()
+    
+    def recover_vehicle(self):
+        self.ego_vehicle.teleport(pos=self.vehicle_pos, rot_quat=self.vehicle_rot_quat)
     
     def get_current_actions(self):
         return {"throttle": self.cur_throttle, "steering": self.cur_steering, "brake": self.cur_brake}
@@ -142,7 +144,7 @@ class BeamNG:
         is_within, track_pos = self.is_within_track_border(self.road_geometry, (gps_data[0]['x'], gps_data[0]['y']))
         if not is_within:
             print("Out of track border")
-            track_pos = 5
+            track_pos = 15
         
         self.cur_track_pos = track_pos
         self.speed_x = electrics_data['accXSmooth']
@@ -213,7 +215,7 @@ class BeamNG:
         self.ego_vehicle = Vehicle('ego_vehicle', model='pickup', license='RED', color='Red')
 
 
-        scenario.add_vehicle(self.ego_vehicle, pos=(43.951, 127.815, 180.100), rot_quat=(0, 0, 1, 1))
+        scenario.add_vehicle(self.ego_vehicle, pos=self.vehicle_pos, rot_quat=self.vehicle_rot_quat)
         road_a = Road('track_rubber', rid='nwb_oval_road')
 
         with open("data/north_wilkensboro_nodes.csv", mode='r', newline='') as file:
@@ -233,13 +235,9 @@ class BeamNG:
         print("This is the time to load up Freeroam mode on the game, select your car, select the replay to train on before proceeding.\n")
         input()
         
-        # print(self.beamng.get_gamestate())
-        # print(self.beamng.get_current_vehicles())
-        
-        # self.ego_vehicle = next(iter(self.beamng.get_current_vehicles().values()))
         self.ego_vehicle.connect(self.beamng)
         self.beamng.settings.set_deterministic(60)
-
+        
         camera = Camera('camera1', self.beamng, self.ego_vehicle, is_render_instance=True,
                         is_render_annotations=True, is_render_depth=True)
         lidar = Lidar('lidar1', self.beamng, self.ego_vehicle)

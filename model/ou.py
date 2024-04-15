@@ -8,4 +8,4 @@ class OU:
         self.sigma = sigma
         
     def call_func(self):
-        return self.theta * (self.mu - self.x) + self.sigma * np.random.randn(1)
+        return self.theta * (self.mu - self.x) + self.sigma * np.random.randn()

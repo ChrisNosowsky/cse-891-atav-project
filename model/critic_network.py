@@ -1,25 +1,39 @@
 import tensorflow as tf
 import keras
+import os
 from keras.models import Model
 from keras.layers import Dense, Concatenate
-from keras.optimizers import Adam
-
+from keras.optimizers.legacy import Adam
+from tensorflow.python.keras import backend as K
+import tensorflow.python.util.deprecation as deprecation
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+deprecation._PRINT_DEPRECATION_WARNINGS = False
+tf.compat.v1.disable_eager_execution()
+tf.get_logger().setLevel('ERROR')
 HIDDEN_UNITS1 = 300
 HIDDEN_UNITS2 = 600
 
 class CriticNetwork:
-    def __init__(self, num_sensors, num_actions, batch_size, tau, lrc):
+    def __init__(self, sess: tf.compat.v1.Session, num_sensors, num_actions, batch_size, tau, lrc):
+        self.sess = sess
         self.num_sensors = num_sensors
         self.num_actions = num_actions
         self.batch_size = batch_size
         self.tau = tau
         self.lrc = lrc
+        
+        K.set_session(sess)
+        
         self.model, self.action, self.state = self.create_critic_network(self.num_sensors, self.num_actions)
         self.target_model, self.target_action, self.target_state = self.create_critic_network(self.num_sensors, self.num_actions)
         self.action_grads = tf.gradients(self.model.output, self.action)
+        self.sess.run(tf.compat.v1.initialize_all_variables())
     
     def gradients(self, states, actions):
-        pass
+        return self.sess.run(self.action_grads, feed_dict={
+            self.state: states,
+            self.action: actions
+        })[0]
     
     def target_train(self):
         critic_weights = self.model.get_weights()
@@ -38,6 +52,6 @@ class CriticNetwork:
         h3 = Dense(HIDDEN_UNITS2, activation='relu')(h2)
         V = Dense(num_actions,activation='linear')(h3)   
         model = Model(inputs=[S, A], outputs=V)
-        adam = Adam(lr=self.lrc)
+        adam = Adam(learning_rate=self.lrc)
         model.compile(loss='mse', optimizer=adam)
         return model, A, S
