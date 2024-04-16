@@ -83,13 +83,9 @@ class DDPGModel:
                 noises = np.zeros([1, self.num_actions])
                 original_actions = actor.model.predict(sensors_t.reshape(1, -1))
                 
-                OU_Steering = OU(original_actions[0][0], 0.0 , 0.60, 0.3)
+                OU_Steering = OU(original_actions[0][0], 0.0 , 1.00, 0.2)
                 OU_Throttle = OU(original_actions[0][1], 0.5 , 1.00, 0.1)
                 OU_Brake = OU(original_actions[0][2], -0.1 , 1.00, 0.05)
-                
-                # OU_Steering = 0
-                # OU_Throttle = 0
-                # OU_Brake = 0
                 
                 noises[0][0] = self.train_rl * max(self.epsilon, 0) * OU_Steering.call_func()   # STEERING
                 noises[0][1] = self.train_rl * max(self.epsilon, 0) * OU_Throttle.call_func()   # THROTTLE

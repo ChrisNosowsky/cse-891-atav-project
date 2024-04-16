@@ -1,6 +1,7 @@
 from gym import spaces
 import numpy as np
 import copy
+import math
 from collections import namedtuple
 from beamng import BeamNG
 from constants import *
@@ -48,33 +49,44 @@ class BeamNGEnv:
         angle = np.array(obs['angle'])
         track_pos = np.array(obs['track_pos'])
 
+        angle_deg = math.degrees(obs['angle'])
+        
         # progress = sp * (np.cos(angle) - np.sin(angle) - np.abs(track_pos))
-        progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['track_pos'])
+        progress = np.cos(angle_deg) - np.abs(np.sin(angle_deg)) - np.abs(obs['track_pos'])
+        # progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['track_pos'])
         reward = progress
+
+        print("REWARD BEFORE PENALTIES: ", reward)
 
         # TODO: MODIFY BELOW TERMINATION/PENALTY CRITERIA
         if obs['damage'] - obs_pre['damage'] > 0:
             print("DAMAGE PENALTY")
-            reward -= 1
+            reward -= 30
             
         if action_beamng['throttle'] < 0.01:
             print("THROTTLE PENALTY")
             reward -= 0.1
 
         episode_terminate = False
-        if obs['track_pos'] >= 10:
-            print("OUTSIDE TRACK POS, TIME TO RESET VEHICLE")
-            episode_terminate = True
-            reward -= 1
-            self.client.recover_vehicle()
+        # if obs['track_pos'] >= 10:
+        #     print("OUTSIDE TRACK POS, TIME TO RESET VEHICLE")
+        #     episode_terminate = True
+        #     reward -= 1
+        #     self.client.recover_vehicle()
         
         if obs['gear'] <= 0:
             print("PENALTY FOR GEAR")
             reward -= 1 
             
-        if obs['speed_x'] < 10:
-            print("PENALTY FOR SPEED")
+        # if obs['speed_x'] < 10:
+        #     print("PENALTY FOR SPEED")
+        #     reward -= 10
+            
+        if abs(obs['angle']) > 1.00:
+            print("PENALTY FOR ANGLE")
             reward -= 10
+            episode_terminate = True
+            self.client.recover_vehicle()
         
         # TODO: Termination criteria (ex. gear is reverse, engine oil too hot, water too hot, etc.)
         # if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward

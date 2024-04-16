@@ -95,7 +95,7 @@ class BeamNG:
         return {"throttle": self.cur_throttle, "steering": self.cur_steering, "brake": self.cur_brake}
     
     def apply_actions(self, actions):
-        print("APPLYING THE CONTROL!!")
+        print("APPLYING THE CONTROL!!: ", actions)
         self.ego_vehicle.control(throttle=actions["throttle"], steering=actions["steering"], brake=actions["brake"])
     
     def poll_sensors(self):
