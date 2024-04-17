@@ -8,14 +8,15 @@ from constants import *
 
 class BeamNGEnv:
 
-    def __init__(self, home=BEAMNG_TECH_GAME_PATH_DIR):
+    def __init__(self, home=BEAMNG_TECH_GAME_PATH_DIR, vehicle="pickup", track="north wilkesboro"):
         self.initial_run = True
-        self.client = BeamNG(home=home)
+        self.client = BeamNG(home=home, vehicle=vehicle, track=track)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))
 
         high = np.array([1., np.inf, np.inf, np.inf, 1., np.inf, 1., np.inf])
         low = np.array([0., -np.inf, -np.inf, -np.inf, 0., -np.inf, 0., -np.inf])
         self.observation_space = spaces.Box(low=low, high=high)
+        self.stuck_counter = 0
 
     def step(self, u):
         this_action = self.agent_to_beamng(u)
@@ -28,7 +29,7 @@ class BeamNGEnv:
         action_beamng['throttle'] = this_action['throttle']
         action_beamng['brake'] = this_action['brake']
 
-        # Save the privious full-obs from BeamNG for the reward calculation
+        # Save the previous full-obs from BeamNG for the reward calculation
         obs_pre = copy.deepcopy(self.client.vehicle_data_dict)
 
         # Apply the Agent's action into BeamNG
@@ -36,61 +37,76 @@ class BeamNGEnv:
 
         # Get the current full-observation from BeamNG
         obs = self.client.poll_sensors()
+        
+        # TODO: NEED TO MAKE ANGLE NEGATIVE IF POINTING LEFT
+        # obs['angle'] = 2 * obs['angle'] - np.pi / 2
+        # print("NEW ANGLE!!!!! ", obs['angle'])
+        
         print("STEP OBS ", obs)
         
         # Make an obsevation from a raw observation vector from BeamNG
         self.observation = self.make_observaton(obs)
 
         ## REWARD SECTION ##
-        sp = np.array(obs['speed_x'])
-        damage = np.array(obs['damage'])
-        # rpm = np.array(obs['rpm'])
+        # sp = np.array(obs['speed_x'])
+        sp = np.array(obs['wheelspin'])
         # angle = np.array((obs['angle']) * 180 / np.pi)
         angle = np.array(obs['angle'])
         track_pos = np.array(obs['track_pos'])
-
         angle_deg = math.degrees(obs['angle'])
         
-        # progress = sp * (np.cos(angle) - np.sin(angle) - np.abs(track_pos))
-        progress = np.cos(angle_deg) - np.abs(np.sin(angle_deg)) - np.abs(obs['track_pos'])
+
+        # progress = sp * (np.cos(angle_deg) - np.sin(angle_deg) - np.abs(track_pos))
+        # progress = np.cos(angle_deg) - np.abs(np.sin(angle_deg)) - np.abs(obs['track_pos'])
         # progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['track_pos'])
+        progress = sp*np.cos(angle_deg) - np.abs(sp*np.sin(angle_deg)) - sp * np.abs(obs['track_pos'])
         reward = progress
 
         print("REWARD BEFORE PENALTIES: ", reward)
 
-        # TODO: MODIFY BELOW TERMINATION/PENALTY CRITERIA
+        # if obs['track_pos'] > 0 and obs['track_pos'] < 0.5:
+        #     reward = 10000
+
+        # if obs['track_pos'] > -0.5 and obs['track_pos'] < 0.5:
+        #     reward += 200
+
+        if obs['damage'] > 4500:
+            print("DAMAGE PENALTY")
+            reward = -50
+            episode_terminate = True
+            self.client.recover_vehicle()
+            
         if obs['damage'] - obs_pre['damage'] > 0:
             print("DAMAGE PENALTY")
-            reward -= 30
-            
-        if action_beamng['throttle'] < 0.01:
-            print("THROTTLE PENALTY")
-            reward -= 0.1
+            reward = -10
 
         episode_terminate = False
-        # if obs['track_pos'] >= 10:
+        # if obs['track_pos'] >= 1 or obs['track_pos'] <= -1:
         #     print("OUTSIDE TRACK POS, TIME TO RESET VEHICLE")
-        #     episode_terminate = True
-        #     reward -= 1
-        #     self.client.recover_vehicle()
-        
-        if obs['gear'] <= 0:
-            print("PENALTY FOR GEAR")
-            reward -= 1 
+        #     # episode_terminate = True
+        #     reward = -50
+            # self.client.recover_vehicle()
             
         # if obs['speed_x'] < 10:
         #     print("PENALTY FOR SPEED")
         #     reward -= 10
             
-        if abs(obs['angle']) > 1.00:
-            print("PENALTY FOR ANGLE")
-            reward -= 10
+        # if abs(obs['angle']) > 1.05:
+        #     print("PENALTY FOR ANGLE")
+        #     reward -= 100
+        #     episode_terminate = True
+        #     self.client.recover_vehicle()
+        
+        if round(obs_pre['track_pos'], 2) == round(obs['track_pos'], 2) and \
+            obs['wheelspin'] < 0.03 and obs['gear'] != 0:
+            print("DETECTING STUCK.")
+            self.stuck_counter += 1
+        
+        if self.stuck_counter >= 10:
+            print("CAR STUCK")
+            self.stuck_counter = 0
             episode_terminate = True
             self.client.recover_vehicle()
-        
-        # TODO: Termination criteria (ex. gear is reverse, engine oil too hot, water too hot, etc.)
-        # if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward
-        #     episode_terminate = True
 
         self.time_step += 1
 

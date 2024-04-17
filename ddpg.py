@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import numpy as np
 import tensorflow as tf
 from model.actor_network import ActorNetwork
@@ -17,11 +18,15 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 np.random.seed(1337)
 
 class DDPGModel:
-    def __init__(self, num_sensors, num_actions=3, train_rl=0, home=BEAMNG_TECH_GAME_PATH_DIR, buffer_size=100000, batch_size=32, gamma=0.99, tau=0.001, lra=0.0001, lrc=0.001):
+    def __init__(self, num_sensors, num_actions=3, train_rl=0, home=BEAMNG_TECH_GAME_PATH_DIR, 
+                 vehicle="pickup", track="north wilkesboro",
+                 buffer_size=100000, batch_size=32, gamma=0.99, tau=0.001, lra=0.0001, lrc=0.001):
         self.num_sensors = num_sensors
         self.num_actions = num_actions
         self.train_rl = train_rl
         self.home = home
+        self.vehicle = vehicle
+        self.track = track
         self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.gamma = gamma
@@ -54,7 +59,7 @@ class DDPGModel:
         critic = self.get_critic(sess)
         buff = self.get_replay_buffer()
         
-        env = BeamNGEnv(home=self.home)
+        env = BeamNGEnv(home=self.home, vehicle=self.vehicle, track=self.track)
         env.client.run_simulator()
         
         try:
@@ -62,7 +67,7 @@ class DDPGModel:
             critic.model.load_weights(CRITIC_MODEL)
             actor.target_model.load_weights(ACTOR_MODEL)
             critic.target_model.load_weights(CRITIC_MODEL)
-            print("Weight load successfully")
+            print("Weight loaded successfully")
         except:
             print("Cannot find the weight")
         
@@ -83,7 +88,7 @@ class DDPGModel:
                 noises = np.zeros([1, self.num_actions])
                 original_actions = actor.model.predict(sensors_t.reshape(1, -1))
                 
-                OU_Steering = OU(original_actions[0][0], 0.0 , 1.00, 0.2)
+                OU_Steering = OU(original_actions[0][0], 0.0 , 1.00, 0.3)
                 OU_Throttle = OU(original_actions[0][1], 0.5 , 1.00, 0.1)
                 OU_Brake = OU(original_actions[0][2], -0.1 , 1.00, 0.05)
                 
@@ -130,8 +135,8 @@ class DDPGModel:
                 total_reward += reward_t
                 sensors_t = sensors_t1
                 
-                print("Episode", i, "Step", step, "Action", actions, "Reward", reward_t, "Loss", loss)
-                
+                print("Episode", i, "Step", step, "Reward", reward_t, "Loss", loss)
+                # time.sleep(5)
                 step += 1
                 if done:
                     print("DONE. TERMINATE.")
@@ -156,11 +161,18 @@ class DDPGModel:
                 
                 
 if __name__ == '__main__':
+    #### CONFIGURE HERE! ####
+    vehicle = "moonhawk"
+    track = "north wilkesboro"
+    #########################
+    
     if os.path.exists(BEAMNG_TECH_GAME_PATH_DIR):
         print("CHRIS PC")
-        ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS, train_rl=1, home=BEAMNG_TECH_GAME_PATH_DIR)
+        ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS, train_rl=1, 
+                         home=BEAMNG_TECH_GAME_PATH_DIR, vehicle=vehicle, track=track)
     else:
         print("MISHA PC")
-        ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS, train_rl=1, home=MISHA_BEAMNG_TECH_GAME_PATH_DIR)
+        ddpg = DDPGModel(NUM_SENSORS, NUM_ACTIONS, train_rl=1, home=MISHA_BEAMNG_TECH_GAME_PATH_DIR, 
+                         vehicle=vehicle, track=track)
     ddpg.model()
     

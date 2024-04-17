@@ -4,16 +4,20 @@ import os
 import csv
 import numpy as np
 from beamngpy import BeamNGpy, Scenario, Vehicle, Road
-from beamngpy.sensors import Electrics, Camera, Lidar, Damage, Timer, Ultrasonic, PowertrainSensor, GPS, RoadsSensor
+from beamngpy.sensors import Electrics, Camera, Lidar, Damage, Timer, Ultrasonic, GPS, RoadsSensor
 from desktopmagic.screengrab_win32 import getDisplayRects
 from constants import *
 
 SCREENS=(getDisplayRects())
 
 class BeamNG:
-    def __init__(self, hostname="localhost", port=64256, home=BEAMNG_TECH_GAME_PATH_DIR, verbose=False):
+    def __init__(self, hostname="localhost", port=64256, 
+                 home=BEAMNG_TECH_GAME_PATH_DIR, vehicle="pickup", 
+                 track="north wilkesboro", verbose=False):
         self.beamng = BeamNGpy(hostname, port, home)
         self.verbose = verbose
+        self.vehicle = vehicle
+        self.track = track
         self.ego_vehicle = None
         self.vehicle_sensors = []
         self.vehicle_data = []
@@ -34,7 +38,7 @@ class BeamNG:
         self.cur_track_dist_left_30 = 0
         self.cur_track_dist_left_60 = 0
         self.road_geometry = None
-        self.road_width = 10
+        self.road_width = 12
         self.vehicle_pos = (43.951, 127.815, 180.100)
         self.vehicle_rot_quat = (0, 0, 1, 1)
     
@@ -52,8 +56,48 @@ class BeamNG:
             os.makedirs(folder_path)
             print(f"Directory '{folder_path}' created successfully.")
 
+
+    @staticmethod
+    def point_to_line_distance(px, py, x1, y1, x2, y2):
+        # Calculate the line vector and point vector
+        line_vec = np.array([x2 - x1, y2 - y1])
+        pnt_vec = np.array([px - x1, py - y1])
+
+        line_len = np.linalg.norm(line_vec)
+        line_unitvec = line_vec / line_len
+        pnt_vec_scaled = pnt_vec / line_len
+
+        # Project point onto the line (dot product)
+        t = np.dot(line_unitvec, pnt_vec_scaled)    
+        if t < 0.0:
+            t = 0.0
+        elif t > 1.0:
+            t = 1.0
+
+        nearest = line_vec * t
+        dist = np.linalg.norm(pnt_vec - nearest)
+
+        # Determine side (cross product)
+        side = np.cross(line_unitvec, pnt_vec)
+        side_sign = np.sign(side)
+
+        return dist * side_sign  # Returns negative if point is left of the line 
+
+
+    def get_car_position_relative_to_road(self, middle_x, middle_y, cur_x, cur_y, road_width):
+        min_dist = float('inf')
+        side = 0
+        for i in range(len(middle_x) - 1):
+            dist = self.point_to_line_distance(cur_x, cur_y, middle_x[i], middle_y[i], middle_x[i+1], middle_y[i+1])
+            if abs(dist) < abs(min_dist):
+                min_dist = dist
+                side = np.sign(dist)
+        
+        normalized_dist = min_dist / (road_width / 2)  # Normalizing by half the road width
+        return normalized_dist, side
+
     def is_within_track_border(self, road_geometry, cur_gps_pos):
-        track_pos = 15
+        track_pos = 5
         cur_x, cur_y = cur_gps_pos
         is_within = False
         
@@ -68,16 +112,15 @@ class BeamNG:
             segment_max_x = max(left_edge_x[i], right_edge_x[i], left_edge_x[i+1], right_edge_x[i+1])
             segment_min_y = min(left_edge_y[i], right_edge_y[i], left_edge_y[i+1], right_edge_y[i+1])
             segment_max_y = max(left_edge_y[i], right_edge_y[i], left_edge_y[i+1], right_edge_y[i+1])
-            segment_min_middle_x = min(middles_x[i], middles_x[i+1])
-            segment_max_middle_x = max(middles_x[i], middles_x[i+1])
-            segment_max_middle_y = max(middles_y[i], middles_y[i+1])
-            segment_min_middle_y = min(middles_y[i], middles_y[i+1])
             if segment_min_x <= cur_x <= segment_max_x and segment_min_y <= cur_y <= segment_max_y:
-                cur_pos = cur_x + cur_y
-                mid_pos = np.mean([segment_min_middle_x, segment_max_middle_x]) + np.mean([segment_min_middle_y, segment_max_middle_y])
-                track_pos = np.abs(cur_pos - mid_pos) / self.road_width
                 is_within = True
                 break
+        
+        track_pos, side = self.get_car_position_relative_to_road(middles_x, middles_y, cur_x, cur_y, self.road_width)
+        track_pos, side = -track_pos, -side
+        # track_pos [-1, 1] --> 0 Center; (0, 1] Right; [-1, 0) Left
+        # side == -1 is left, side == +1 is right
+        print("Normalized Position:", track_pos, "Side:", "Left" if side < 0 else "Right")
         print("IS WITHIN? ", is_within)
         return is_within, track_pos
 
@@ -99,23 +142,17 @@ class BeamNG:
         self.ego_vehicle.control(throttle=actions["throttle"], steering=actions["steering"], brake=actions["brake"])
     
     def poll_sensors(self):
-        camera: Camera = self.vehicle_sensors[0]
-        lidar: Lidar = self.vehicle_sensors[1]
-        gps: GPS = self.vehicle_sensors[2]
-        road_sensor: RoadsSensor = self.vehicle_sensors[3]
-        powertrain: PowertrainSensor = self.vehicle_sensors[4]
-        ultrasonic_forward: Ultrasonic = self.vehicle_sensors[5]
-        ultrasonic_left_30: Ultrasonic = self.vehicle_sensors[6]
-        ultrasonic_left_60: Ultrasonic = self.vehicle_sensors[7]
-        ultrasonic_right_30: Ultrasonic = self.vehicle_sensors[8]
-        ultrasonic_right_60: Ultrasonic = self.vehicle_sensors[9]
+        gps: GPS = self.vehicle_sensors[0]
+        road_sensor: RoadsSensor = self.vehicle_sensors[1]
+        ultrasonic_forward: Ultrasonic = self.vehicle_sensors[2]
+        ultrasonic_left_30: Ultrasonic = self.vehicle_sensors[3]
+        ultrasonic_left_60: Ultrasonic = self.vehicle_sensors[4]
+        ultrasonic_right_30: Ultrasonic = self.vehicle_sensors[5]
+        ultrasonic_right_60: Ultrasonic = self.vehicle_sensors[6]
         
         self.ego_vehicle.sensors.poll()
-        camera_data = camera.poll()
-        lidar_data = lidar.poll()
         gps_data = gps.poll()
         road_data = road_sensor.poll()
-        powertrain_data = powertrain.poll()
         ultrasonic_forward_data = ultrasonic_forward.poll()
         ultrasonic_left_data_30 = ultrasonic_left_30.poll()
         ultrasonic_left_data_60 = ultrasonic_left_60.poll()
@@ -142,9 +179,6 @@ class BeamNG:
             time.sleep(1)
             self.cur_angle = 0
         is_within, track_pos = self.is_within_track_border(self.road_geometry, (gps_data[0]['x'], gps_data[0]['y']))
-        if not is_within:
-            print("Out of track border")
-            track_pos = 15
         
         self.cur_track_pos = track_pos
         self.speed_x = electrics_data['accXSmooth']
@@ -179,46 +213,30 @@ class BeamNG:
             "track_dist_left_60": self.cur_track_dist_left_60
         }
         
-        current_epoch = int(time.time())
-        self.vehicle_data.append([current_epoch, electrics_data['steering'], electrics_data['throttle'], 
-                    electrics_data['brake'], electrics_data['gear'], lidar_data['pointCloud']])
-        
         if self.verbose:
             # print("TIMER ", timer_data)
-            # print("\n\nDAMAGE ", damage_data)
+            print("\n\nDAMAGE ", damage_data)
             print("\n\nELECTRICS ", electrics_data)
-            # print("\n\nULTRASONIC DATA FORWARD", ultrasonic_forward_data['distance'])
-            # print("\n\nULTRASONIC DATA LEFT 30", ultrasonic_left_data_30['distance'])
-            # print("\n\nULTRASONIC DATA LEFT 60", ultrasonic_left_data_60['distance'])
-            # print("\n\nULTRASONIC DATA RIGHT 30", ultrasonic_right_data_30['distance'])
-            # print("\n\nULTRASONIC DATA RIGHT 60", ultrasonic_right_data_60['distance'])
-            # print("\n\nCAMERA DATA ", camera_data)
-            # print("\n\nLIDAR DATA ", lidar_data)
-            # print("\n\nPOWERTRAIN DATA ", powertrain_data)
+            print("\n\nULTRASONIC DATA FORWARD", ultrasonic_forward_data['distance'])
+            print("\n\nULTRASONIC DATA LEFT 30", ultrasonic_left_data_30['distance'])
+            print("\n\nULTRASONIC DATA LEFT 60", ultrasonic_left_data_60['distance'])
+            print("\n\nULTRASONIC DATA RIGHT 30", ultrasonic_right_data_30['distance'])
+            print("\n\nULTRASONIC DATA RIGHT 60", ultrasonic_right_data_60['distance'])
         
         return self.vehicle_data_dict
-        
-        
-    def write_logged_data(self, filename):
-        with open(filename, 'w') as f:
-            f.write('uid,time,steering,throttle,brake,gear,lidar_pc\n')
-            for i, control in enumerate(self.vehicle_data):
-                f.write('{},{},{},{},{},{}\n'.format(control[0], control[1], control[2], control[3], control[4], control[5]))
-
         
     def run_simulator(self):
         self.beamng.close()
         self.beamng.open()
 
         time.sleep(2)
-        scenario = Scenario('north wilkesboro', 'tech_test', description='Random driving for research')
-        self.ego_vehicle = Vehicle('ego_vehicle', model='pickup', license='RED', color='Red')
-
+        scenario = Scenario(self.track, 'cse_891_atav_nwb', description='DDPG on North Wilkesboro')
+        self.ego_vehicle = Vehicle('ego_vehicle', model=self.vehicle, license='CSE 891 ATAV', color='Red')
 
         scenario.add_vehicle(self.ego_vehicle, pos=self.vehicle_pos, rot_quat=self.vehicle_rot_quat)
-        road_a = Road('track_rubber', rid='nwb_oval_road')
+        road_a = Road('track_rubber', rid='oval_road', default_width=self.road_width)
 
-        with open("data/north_wilkensboro_nodes.csv", mode='r', newline='') as file:
+        with open("data/" + self.track + "_nodes.csv", mode='r', newline='') as file:
             csv_reader = csv.reader(file)
             for row in csv_reader:
                 node = tuple(float(val) if i != 3 else int(val) for i, val in enumerate(row))
@@ -238,9 +256,6 @@ class BeamNG:
         self.ego_vehicle.connect(self.beamng)
         self.beamng.settings.set_deterministic(60)
         
-        camera = Camera('camera1', self.beamng, self.ego_vehicle, is_render_instance=True,
-                        is_render_annotations=True, is_render_depth=True)
-        lidar = Lidar('lidar1', self.beamng, self.ego_vehicle)
         road_sensor = RoadsSensor('road', bng=self.beamng, vehicle=self.ego_vehicle)
         gps = GPS('gps', bng=self.beamng, vehicle=self.ego_vehicle)
         
@@ -251,8 +266,6 @@ class BeamNG:
 
         ultrasonic_right_30 = Ultrasonic('ultrasonic_right30', self.beamng, self.ego_vehicle, dir=(-0.30, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
         ultrasonic_right_60 = Ultrasonic('ultrasonic_right60', self.beamng, self.ego_vehicle, dir=(-0.60, -1, 0), field_of_view_y=2, near_far_planes=(0.1, 10.1), range_direct_max_cutoff=10)
-                
-        powertrain = PowertrainSensor('powertrain1', self.beamng, self.ego_vehicle)
         
         electrics = Electrics()
         damage = Damage()
@@ -260,7 +273,7 @@ class BeamNG:
         self.ego_vehicle.sensors.attach('electrics', electrics)
         self.ego_vehicle.sensors.attach('damage', damage)
         
-        self.vehicle_sensors = [camera, lidar, gps, road_sensor, powertrain, ultrasonic_forward, ultrasonic_left_30, ultrasonic_left_60, ultrasonic_right_30, ultrasonic_right_60]
+        self.vehicle_sensors = [gps, road_sensor, ultrasonic_forward, ultrasonic_left_30, ultrasonic_left_60, ultrasonic_right_30, ultrasonic_right_60]
         
         print("Press Enter when ready to proceed with the rest of the code")
         print("You are about to start training.")
@@ -279,7 +292,7 @@ class BeamNG:
             
         self.beamng.control.resume()
         
-        self.road_geometry = self.beamng.scenario.get_road_edges('nwb_oval_road')
+        self.road_geometry = self.beamng.scenario.get_road_edges('oval_road')
         
         time.sleep(1)
         print("Game environment is ready.")
