@@ -8,9 +8,9 @@ from constants import *
 
 class BeamNGEnv:
 
-    def __init__(self, home=BEAMNG_TECH_GAME_PATH_DIR, vehicle="pickup", track="north wilkesboro"):
+    def __init__(self, home=BEAMNG_TECH_GAME_PATH_DIR, vehicle="pickup", track="north wilkesboro", road_width=10):
         self.initial_run = True
-        self.client = BeamNG(home=home, vehicle=vehicle, track=track)
+        self.client = BeamNG(home=home, vehicle=vehicle, track=track, road_width=road_width)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))
 
         high = np.array([1., np.inf, np.inf, np.inf, 1., np.inf, 1., np.inf])
@@ -38,24 +38,17 @@ class BeamNGEnv:
         # Get the current full-observation from BeamNG
         obs = self.client.poll_sensors()
         
-        # TODO: NEED TO MAKE ANGLE NEGATIVE IF POINTING LEFT
-        # obs['angle'] = 2 * obs['angle'] - np.pi / 2
-        # print("NEW ANGLE!!!!! ", obs['angle'])
-        
         print("STEP OBS ", obs)
         
         # Make an obsevation from a raw observation vector from BeamNG
         self.observation = self.make_observaton(obs)
 
         ## REWARD SECTION ##
-        # sp = np.array(obs['speed_x'])
-        sp = np.array(obs['wheelspin'])
-        # angle = np.array((obs['angle']) * 180 / np.pi)
+        sp = np.array(obs['speed_x'])
         angle = np.array(obs['angle'])
         track_pos = np.array(obs['track_pos'])
         angle_deg = math.degrees(obs['angle'])
         
-
         # progress = sp * (np.cos(angle_deg) - np.sin(angle_deg) - np.abs(track_pos))
         # progress = np.cos(angle_deg) - np.abs(np.sin(angle_deg)) - np.abs(obs['track_pos'])
         # progress = sp*np.cos(obs['angle']) - np.abs(sp*np.sin(obs['angle'])) - sp * np.abs(obs['track_pos'])
@@ -63,14 +56,14 @@ class BeamNGEnv:
         reward = progress
 
         print("REWARD BEFORE PENALTIES: ", reward)
+        episode_terminate = False
+        if obs['track_pos'] > 0 and obs['track_pos'] < 0.5:
+            reward = 10000
 
-        # if obs['track_pos'] > 0 and obs['track_pos'] < 0.5:
-        #     reward = 10000
+        if obs['track_pos'] > -0.9 and obs['track_pos'] < 0.9:
+            reward += 20000000
 
-        # if obs['track_pos'] > -0.5 and obs['track_pos'] < 0.5:
-        #     reward += 200
-
-        if obs['damage'] > 4500:
+        if obs['damage'] > 6000:
             print("DAMAGE PENALTY")
             reward = -50
             episode_terminate = True
@@ -80,22 +73,11 @@ class BeamNGEnv:
             print("DAMAGE PENALTY")
             reward = -10
 
-        episode_terminate = False
-        # if obs['track_pos'] >= 1 or obs['track_pos'] <= -1:
-        #     print("OUTSIDE TRACK POS, TIME TO RESET VEHICLE")
-        #     # episode_terminate = True
-        #     reward = -50
+        if obs['track_pos'] >= 1 or obs['track_pos'] <= -1:
+            print("OUTSIDE TRACK POS")
+            # episode_terminate = True
+            reward = -50
             # self.client.recover_vehicle()
-            
-        # if obs['speed_x'] < 10:
-        #     print("PENALTY FOR SPEED")
-        #     reward -= 10
-            
-        # if abs(obs['angle']) > 1.05:
-        #     print("PENALTY FOR ANGLE")
-        #     reward -= 100
-        #     episode_terminate = True
-        #     self.client.recover_vehicle()
         
         if round(obs_pre['track_pos'], 2) == round(obs['track_pos'], 2) and \
             obs['wheelspin'] < 0.03 and obs['gear'] != 0:

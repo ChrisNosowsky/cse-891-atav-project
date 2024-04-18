@@ -4,7 +4,7 @@ import os
 import csv
 import numpy as np
 from beamngpy import BeamNGpy, Scenario, Vehicle, Road
-from beamngpy.sensors import Electrics, Camera, Lidar, Damage, Timer, Ultrasonic, GPS, RoadsSensor
+from beamngpy.sensors import Electrics, Damage, Timer, Ultrasonic, GPS, RoadsSensor
 from desktopmagic.screengrab_win32 import getDisplayRects
 from constants import *
 
@@ -13,7 +13,7 @@ SCREENS=(getDisplayRects())
 class BeamNG:
     def __init__(self, hostname="localhost", port=64256, 
                  home=BEAMNG_TECH_GAME_PATH_DIR, vehicle="pickup", 
-                 track="north wilkesboro", verbose=False):
+                 track="north wilkesboro", road_width=10, verbose=False):
         self.beamng = BeamNGpy(hostname, port, home)
         self.verbose = verbose
         self.vehicle = vehicle
@@ -38,9 +38,10 @@ class BeamNG:
         self.cur_track_dist_left_30 = 0
         self.cur_track_dist_left_60 = 0
         self.road_geometry = None
-        self.road_width = 12
+        self.road_width = road_width
         self.vehicle_pos = (43.951, 127.815, 180.100)
         self.vehicle_rot_quat = (0, 0, 1, 1)
+        self.previous_distance = 0
     
     @staticmethod
     def data_folder_check(folder_path):
@@ -96,6 +97,32 @@ class BeamNG:
         normalized_dist = min_dist / (road_width / 2)  # Normalizing by half the road width
         return normalized_dist, side
 
+
+    def update_car_heading_and_position(self, cur_x, cur_y, middle_x, middle_y, road_width):
+        normalized_dist, current_side = self.get_car_position_relative_to_road(middle_x, middle_y, cur_x, cur_y, road_width)
+        normalized_dist, current_side = -normalized_dist, -current_side
+        moving_direction = UNKNOWN
+        
+        abs_normalized_dist = abs(normalized_dist)
+        # print("ABS Normalized distance: ", normalized_dist, "Current side: ", "Left" if current_side < 0 else "Right")
+        
+        if self.previous_distance != 0:  # Check if there is a previous distance for comparison
+            if abs_normalized_dist > abs(self.previous_distance):    # Away from center line
+                if current_side < 0:
+                    moving_direction = TURNING_LEFT
+                else:
+                    moving_direction = TURNING_RIGHT
+            elif abs_normalized_dist < abs(self.previous_distance):
+                if current_side < 0:
+                    moving_direction = TURNING_RIGHT
+                else:
+                    moving_direction = TURNING_LEFT
+        # Update the previous states for next computation
+        self.previous_distance = abs_normalized_dist
+
+        return normalized_dist, current_side, moving_direction
+
+
     def is_within_track_border(self, road_geometry, cur_gps_pos):
         track_pos = 5
         cur_x, cur_y = cur_gps_pos
@@ -116,13 +143,12 @@ class BeamNG:
                 is_within = True
                 break
         
-        track_pos, side = self.get_car_position_relative_to_road(middles_x, middles_y, cur_x, cur_y, self.road_width)
-        track_pos, side = -track_pos, -side
+        track_pos, side, moving_direction = self.update_car_heading_and_position(cur_x, cur_y, middles_x, middles_y, self.road_width)
         # track_pos [-1, 1] --> 0 Center; (0, 1] Right; [-1, 0) Left
         # side == -1 is left, side == +1 is right
-        print("Normalized Position:", track_pos, "Side:", "Left" if side < 0 else "Right")
-        print("IS WITHIN? ", is_within)
-        return is_within, track_pos
+        # print("IS WITHIN? ", is_within)
+        
+        return is_within, track_pos, moving_direction
 
 
     def configure_beamng(self):
@@ -172,18 +198,21 @@ class BeamNG:
         else:
             self.cur_gear = electrics_data['gear']
         self.cur_rpm = electrics_data['rpm']
+        is_within, track_pos, car_heading = self.is_within_track_border(self.road_geometry, (gps_data[0]['x'], gps_data[0]['y']))
+        
         try:
             self.cur_angle = road_data[0]['headingAngle']
+            if car_heading == TURNING_LEFT:
+                self.cur_angle = -self.cur_angle
         except:
             print("Wait")
             time.sleep(1)
             self.cur_angle = 0
-        is_within, track_pos = self.is_within_track_border(self.road_geometry, (gps_data[0]['x'], gps_data[0]['y']))
         
         self.cur_track_pos = track_pos
-        self.speed_x = electrics_data['accXSmooth']
-        self.speed_y = electrics_data['accYSmooth']
-        self.speed_z = electrics_data['accZSmooth']
+        self.speed_x = self.ego_vehicle.state['vel'][0]
+        self.speed_y = self.ego_vehicle.state['vel'][1]
+        self.speed_z = self.ego_vehicle.state['vel'][2]
         self.cur_throttle = electrics_data['throttle']
         self.cur_steering = electrics_data['steering']
         self.cur_engine_temp = electrics_data['water_temperature']
@@ -239,7 +268,7 @@ class BeamNG:
         with open("data/" + self.track + "_nodes.csv", mode='r', newline='') as file:
             csv_reader = csv.reader(file)
             for row in csv_reader:
-                node = tuple(float(val) if i != 3 else int(val) for i, val in enumerate(row))
+                node = (float(row[0]), float(row[1]), float(row[2]), self.road_width)
                 print(node)
                 road_a.add_nodes(node)
 
@@ -252,7 +281,7 @@ class BeamNG:
         print("Press Enter when ready to proceed with the rest of the code\n")
         print("This is the time to load up Freeroam mode on the game, select your car, select the replay to train on before proceeding.\n")
         input()
-        
+        self.ego_vehicle = next(iter(self.beamng.get_current_vehicles().values()))
         self.ego_vehicle.connect(self.beamng)
         self.beamng.settings.set_deterministic(60)
         

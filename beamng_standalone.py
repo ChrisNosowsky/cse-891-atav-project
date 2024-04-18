@@ -64,7 +64,7 @@ ultrasonic_right_60 = Ultrasonic('ultrasonic_right60', beamng, ego_vehicle, dir=
 electrics = Electrics()
 damage = Damage()
 timer = Timer()
-# ego_vehicle.sensors.attach('electrics', electrics)
+ego_vehicle.sensors.attach('electrics', electrics)
 # ego_vehicle.sensors.attach('damage', damage)
 
 # ego_vehicle.sensors.attach('timer', timer)
@@ -118,21 +118,23 @@ while time.time() - start_time < duration:
     ultrasonic_right_data_60 = ultrasonic_right_60.poll()
     # powertrain_data = powertrain.poll()
     
-    # electrics_data = ego_vehicle.sensors['electrics']
+    electrics_data = ego_vehicle.sensors['electrics']
     # damage_data = ego_vehicle.sensors['damage']
     # timer_data = ego_vehicle.sensors['timer']
     
     # print("TIMER ", timer_data)
     # print("\n\nDAMAGE ", damage_data)
-    # print("\n\nELECTRICS ", electrics_data)
+    print("\n\nELECTRICS ", electrics_data)
     # print("\n\nCAMERA DATA ", camera_data)
     # print("\n\nLIDAR DATA ", lidar_data['pointCloud'])
     # print("\n\nPOWERTRAIN DATA ", powertrain_data)
-    # print("\nULTRASONIC DATA FORWARD", ultrasonic_forward_data['distance'])
-    # print("\nULTRASONIC DATA LEFT 30", ultrasonic_left_data_30['distance'])
-    # print("\nULTRASONIC DATA LEFT 60", ultrasonic_left_data_60['distance'])
-    # print("\nULTRASONIC DATA RIGHT 30", ultrasonic_right_data_30['distance'])
-    # print("\nULTRASONIC DATA RIGHT 60", ultrasonic_right_data_60['distance'])
+    print("\nULTRASONIC DATA FORWARD", ultrasonic_forward_data['distance'])
+    print("\nULTRASONIC DATA LEFT 30", ultrasonic_left_data_30['distance'])
+    print("\nULTRASONIC DATA LEFT 60", ultrasonic_left_data_60['distance'])
+    print("\nULTRASONIC DATA RIGHT 30", ultrasonic_right_data_30['distance'])
+    print("\nULTRASONIC DATA RIGHT 60", ultrasonic_right_data_60['distance'])
+    
+    
     # color_image = camera_data['colour']
     # color_image.save(camera_path, format='PNG')
     # camera_sensor_data.append(camera_data)

@@ -12,3 +12,7 @@ MISHA_BEAMNG_TECH_GAME_PATH_DIR = "C:/Users/laptop/Desktop/BeamNG.tech.v0.31.3.0
 SCREENSHOT_FOLDER_PATH = './screenshots/'
 CAMERA_FOLDER_PATH = './camera/'
 LIDAR_FOLDER_PATH = './lidar/'
+
+TURNING_LEFT = "Turning Left"
+TURNING_RIGHT = "Turning Right"
+UNKNOWN = "Unknown"
