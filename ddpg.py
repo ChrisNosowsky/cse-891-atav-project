@@ -164,7 +164,9 @@ if __name__ == '__main__':
     #### CONFIGURE HERE! ####
     vehicle = "moonhawk"
     track = "north wilkesboro"
+    track_2 = "MIS"
     road_width = 15
+    road_width_2 = 18
     #########################
     
     if os.path.exists(BEAMNG_TECH_GAME_PATH_DIR):

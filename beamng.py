@@ -39,8 +39,13 @@ class BeamNG:
         self.cur_track_dist_left_60 = 0
         self.road_geometry = None
         self.road_width = road_width
-        self.vehicle_pos = (43.951, 127.815, 180.100)
-        self.vehicle_rot_quat = (0, 0, 1, 1)
+        
+        if self.track == "MIS":
+            self.vehicle_pos = (5.399, 361.638, 124.597)
+            self.vehicle_rot_quat = (0, 0, 1, 3)
+        else:
+            self.vehicle_pos = (43.951, 127.815, 180.100)
+            self.vehicle_rot_quat = (0, 0, 1, 1)
         self.previous_distance = 0
     
     @staticmethod

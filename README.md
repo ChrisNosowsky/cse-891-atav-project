@@ -57,11 +57,9 @@ if __name__ == '__main__':
     ddpg.model()
 ```
 
-## Notes
-Best AI to train per track
-
-Charlotte Roval: RC9
-
+## Setup
+Vehicle: Moonhawk (Street Stock Mod version)
+Tracks: North Wilkesboro (Train track), Michigan International Speedway (Test track)
 
 ## Thought process
 1. model_ddpg calls gym_beamng.py BeamNGEnv class to start up BeamNG environment
@@ -73,3 +71,4 @@ Charlotte Roval: RC9
 7. Process repeats
 
 `beamng_standalone.py` = For testing purposes only
+`get_data.py` = For getting BeamNG AI data

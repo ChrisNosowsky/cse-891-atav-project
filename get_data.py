@@ -135,16 +135,19 @@ beamng = BeamNGpy('localhost', 64256, home=BEAMNG_TECH_GAME_PATH_DIR)
 beamng.open()
 
 time.sleep(2)
-scenario = Scenario('north wilkesboro', 'tech_test', description='Random driving for research')
+scenario = Scenario('MIS', 'tech_test', description='Random driving for research')
 vehicle = Vehicle('ego_vehicle', model='pickup', license='RED', color='Red')
 electrics = Electrics()
 damage = Damage()
 vehicle.attach_sensor('electrics', electrics)
 vehicle.attach_sensor('damage', damage)
-scenario.add_vehicle(vehicle, pos=(43.951, 127.815, 180.100), rot_quat=(0, 0, 1, 1))
-road_a = Road('track_rubber', rid='nwb_oval_road')
+#NWB
+# scenario.add_vehicle(vehicle, pos=(43.951, 127.815, 180.100), rot_quat=(0, 0, 1, 1))
+#MIS
+scenario.add_vehicle(vehicle, pos=(5.399, 361.638, 124.597), rot_quat=(0, 0, 1, 3))
+road_a = Road('track_rubber', rid='oval_road')
 
-with open("data/north wilkesboro_nodes.csv", mode='r', newline='') as file:
+with open("data/MIS_nodes.csv", mode='r', newline='') as file:
     csv_reader = csv.reader(file)
     for row in csv_reader:
         node = tuple(float(val) if i != 3 else int(val) for i, val in enumerate(row))
@@ -169,7 +172,12 @@ print(beamng.get_levels())
 
 ego_vehicle = next(iter(beamng.get_current_vehicles().values()))
 ego_vehicle.connect(beamng)
-ego_vehicle.ai_set_script
+ego_vehicle.ai_set_mode("span")
+# NWB
+# ego_vehicle.ai_set_speed(45)
+# MIS
+ego_vehicle.ai_set_speed(75)
+ego_vehicle.ai_set_aggression(100)
 beamng.settings.set_deterministic(60)
 road_sensor = RoadsSensor('road', bng=beamng, vehicle=vehicle)
 gps = GPS('gps', bng=beamng, vehicle=vehicle)
@@ -198,7 +206,7 @@ while paused:
 
 beamng.control.resume()
 
-road_geometry = beamng.scenario.get_road_edges('nwb_oval_road')
+road_geometry = beamng.scenario.get_road_edges('oval_road')
 
 
 
